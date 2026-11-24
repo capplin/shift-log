@@ -126,6 +126,10 @@
   .poolrow .pn { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .poolrow .pp { font-size: 13px; color: var(--muted); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .sheet.auto { height: auto; max-height: 92vh; }
+  .dlg { position: fixed; inset: 0; z-index: 30; display: flex; align-items: center; justify-content: center; padding: 24px; background: rgba(3,15,24,.55); animation: fade .15s; }
+  .dlgbox { background: var(--card); border-radius: 22px; padding: 22px 18px 18px; width: 100%; max-width: 340px; box-shadow: 0 20px 50px rgba(0,0,0,.3); }
+  .dlgmsg { font-size: 16px; line-height: 1.45; margin-bottom: 18px; text-align: center; }
+  .btn.dangerfill { background: #d9453a; box-shadow: 0 8px 18px rgba(217,69,58,.25); }
   .sheettitle { font-size: 17px; font-weight: 800; }
   .btn.danger { background: var(--badbg); color: var(--bad); box-shadow: none; margin-top: 18px; }
   .sectionlabel { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; margin: 20px 0 10px 2px; }
@@ -304,6 +308,16 @@
   </section>
 </main>
 
+<div class="dlg" id="dlg" hidden>
+  <div class="dlgbox">
+    <div class="dlgmsg" id="dlgMsg"></div>
+    <div class="btns">
+      <button class="btn secondary" id="dlgCancel">Cancel</button>
+      <button class="btn" id="dlgOk">OK</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal" id="poolModal" hidden>
   <div class="sheet auto">
     <div class="grabber"></div>
@@ -339,6 +353,22 @@ const KEY = 'shiftlog-v1';
 const $ = id => document.getElementById(id);
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 
+// in-app dialogs (iPhone can silently block the browser's own confirm pop-ups)
+function showDialog(msg, okLabel, cancelable, danger) {
+  return new Promise(resolve => {
+    $('dlgMsg').textContent = msg;
+    $('dlgOk').textContent = okLabel || 'OK';
+    $('dlgOk').className = 'btn' + (danger ? ' dangerfill' : '');
+    $('dlgCancel').hidden = !cancelable;
+    $('dlg').hidden = false;
+    const done = v => { $('dlg').hidden = true; resolve(v); };
+    $('dlgOk').onclick = () => done(true);
+    $('dlgCancel').onclick = () => done(false);
+  });
+}
+const askConfirm = (msg, okLabel, danger) => showDialog(msg, okLabel, true, danger);
+const notify = msg => { showDialog(msg, 'OK', false, false); };
+
 // ---------- dates (all handled as "YYYY-MM-DD" strings in local time) ----------
 function todayStr() {
   const d = new Date();
@@ -372,7 +402,7 @@ function load() {
 }
 function save() {
   try { localStorage.setItem(KEY, JSON.stringify(state)); }
-  catch (e) { alert('Could not save on this device. Export a backup to be safe.'); }
+  catch (e) { notify('Could not save on this device.'); }
 }
 let state = load();
 let viewStart = periodStartFor(todayStr());
@@ -469,8 +499,8 @@ function shiftRow(s) {
   el.querySelector('.h').textContent = fmtHours(shiftHours(s)) + ' h';
   el.querySelector('.p').textContent = money(shiftPay(s));
   el.querySelector('[data-edit]').onclick = () => startEdit(s.id);
-  el.querySelector('[data-del]').onclick = () => {
-    if (confirm('Delete the shift on ' + fmtDate(s.date) + '?')) {
+  el.querySelector('[data-del]').onclick = async () => {
+    if (await askConfirm('Delete the shift on ' + fmtDate(s.date) + '?', 'Delete', true)) {
       state.shifts = state.shifts.filter(x => x.id !== s.id);
       save(); render();
     }
@@ -642,7 +672,7 @@ function startEdit(id) {
   fillPosSelect(s.posId);
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
-$('saveShift').onclick = () => {
+$('saveShift').onclick = async () => {
   const date = $('fDate').value;
   const hours = roundQ(parseFloat($('fHours').value) || 0);
   const pool = findPool($('fPool').value);
@@ -650,11 +680,11 @@ $('saveShift').onclick = () => {
   if (!state.pools.length) {
     $('settingsBox').open = true;
     $('settingsBox').scrollIntoView({ behavior: 'smooth' });
-    return alert('Add a pool with at least one position first.');
+    return notify('Add a pool with at least one position first.');
   }
-  if (!date) return alert('Pick a date.');
-  if (!pool || !pos) return alert('Pick a pool and a position. Add positions to a pool in Pools & settings.');
-  if (hours <= 0) return alert('Enter the hours you worked.');
+  if (!date) return notify('Pick a date.');
+  if (!pool || !pos) return notify('Pick a pool and a position. Add positions to a pool in Pools & settings.');
+  if (hours <= 0) return notify('Enter the hours you worked.');
 
   const data = {
     date, hours, note: $('fNote').value.trim(),
@@ -664,7 +694,7 @@ $('saveShift').onclick = () => {
   const others = state.shifts.filter(x => x.date === date && x.id !== editingId);
   if (others.length) {
     const desc = others.map(x => (shiftLabel(x) || 'shift') + ', ' + fmtHours(shiftHours(x)) + ' h').join('; ');
-    if (!confirm('There’s already a shift on ' + fmtDate(date) + ' (' + desc + '). Replace it?')) return;
+    if (!(await askConfirm('There’s already a shift on ' + fmtDate(date) + ' (' + desc + '). Replace it?', 'Replace', false))) return;
     state.shifts = state.shifts.filter(x => !others.includes(x));
   }
   if (editingId) {
@@ -686,7 +716,7 @@ $('cancelEdit').onclick = () => resetForm();
 // ---------- paycheck check ----------
 $('runCheck').onclick = () => {
   const gross = parseFloat($('cGross').value);
-  if (isNaN(gross)) return alert('Enter the gross pay from your paystub.');
+  if (isNaN(gross)) return notify('Enter the gross pay from your paystub.');
   const prev = state.checks[viewStart] || {};
   state.checks[viewStart] = typeof prev.hours === 'number' ? { gross, hours: prev.hours } : { gross };
   save(); render();
@@ -930,12 +960,12 @@ $('rCancel').onclick = () => { $('scanReview').hidden = true; scanStatus(''); };
 $('rApply').onclick = () => {
   const start = $('rStart').value, end = $('rEnd').value;
   const gross = parseFloat($('rGross').value), hours = parseFloat($('rHours').value);
-  if (!start || !end) return alert('Fill in the period start and end dates.');
-  if (isNaN(gross)) return alert('Fill in the gross pay.');
+  if (!start || !end) return notify('Fill in the period start and end dates.');
+  if (isNaN(gross)) return notify('Fill in the gross pay.');
   const days = dayNum(end) - dayNum(start) + 1;
-  if (days < 1) return alert('The period end has to be after the start.');
+  if (days < 1) return notify('The period end has to be after the start.');
   if (days === 7 || days === 14) state.settings.periodDays = days;
-  else alert('This payslip covers ' + days + ' days. The app only handles weekly or every-2-weeks pay, so it will keep your current setting.');
+  else notify('This payslip covers ' + days + ' days. The app only handles weekly or every-2-weeks pay, so it will keep your current setting.');
   state.settings.anchor = start;
   viewStart = periodStartFor(start);
   state.checks[viewStart] = isNaN(hours) ? { gross } : { gross, hours };
@@ -1031,7 +1061,7 @@ $('impBtn').onclick = () => {
   if (!state.pools.length) {
     $('settingsBox').open = true;
     $('settingsBox').scrollIntoView({ behavior: 'smooth' });
-    return alert('Add a pool with at least one position first.');
+    return notify('Add a pool with at least one position first.');
   }
   $('impFile').click();
 };
@@ -1065,7 +1095,7 @@ $('impFile').onchange = async e => {
 $('impCancel').onclick = () => { $('impReview').hidden = true; impRows = []; };
 $('impApply').onclick = () => {
   const pool = findPool($('iPool').value), pos = findPos(pool, $('iPos').value);
-  if (!pool || !pos) return alert('Pick a pool and a position.');
+  if (!pool || !pos) return notify('Pick a pool and a position.');
   const rows = impRows.filter(r => r.on);
   const dates = new Set(rows.map(r => r.date));
   state.shifts = state.shifts.filter(s => !dates.has(s.date));
@@ -1161,13 +1191,13 @@ $('pmCancel').onclick = closePoolEditor;
 $('poolModal').onclick = e => { if (e.target === $('poolModal')) closePoolEditor(); };
 $('pmSave').onclick = () => {
   const name = poolDraft.name.trim();
-  if (!name) return alert('Give the pool a name.');
+  if (!name) return notify('Give the pool a name.');
   const positions = poolDraft.positions
     .map(p => ({ id: p.id, name: String(p.name).trim(), rate: p.rate === '' ? '' : Number(p.rate) }))
     .filter(p => p.name || p.rate !== '');
-  if (!positions.length) return alert('Add at least one position with its pay.');
-  if (positions.some(p => !p.name)) return alert('Every position needs a name.');
-  if (positions.some(p => p.rate === '' || isNaN(p.rate) || p.rate < 0)) return alert('Every position needs an hourly pay.');
+  if (!positions.length) return notify('Add at least one position with its pay.');
+  if (positions.some(p => !p.name)) return notify('Every position needs a name.');
+  if (positions.some(p => p.rate === '' || isNaN(p.rate) || p.rate < 0)) return notify('Every position needs an hourly pay.');
   if (poolDraftId) {
     const pool = findPool(poolDraftId);
     pool.name = name; pool.positions = positions;
@@ -1178,10 +1208,10 @@ $('pmSave').onclick = () => {
   closePoolEditor();
   renderPools(); refreshFormSelects(); render();
 };
-$('pmDelete').onclick = () => {
+$('pmDelete').onclick = async () => {
   const pool = findPool(poolDraftId);
   if (!pool) return closePoolEditor();
-  if (!confirm('Delete ' + (pool.name || 'this pool') + '? Shifts you already logged keep their pay.')) return;
+  if (!(await askConfirm('Delete ' + (pool.name || 'this pool') + '? Shifts you already logged keep their pay.', 'Delete', true))) return;
   state.pools = state.pools.filter(p => p.id !== pool.id);
   if (state.last.poolId === pool.id) state.last = Object.assign({}, state.last, { poolId: null, posId: null });
   save();
