@@ -7,117 +7,180 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Shift Log">
-<meta name="theme-color" content="#0b3d5c">
+<meta name="theme-color" content="#08324f">
 <title>Shift Log</title>
 <style>
   :root {
-    --bg: #f2f6f9; --card: #fff; --ink: #10222e; --muted: #5d7180;
-    --pool: #0b3d5c; --accent: #1aa3c8; --good: #1f8a4c; --bad: #c0392b; --line: #dde6ec;
+    --bg: #eef4f8; --card: #ffffff; --field: #f2f6f9; --ink: #0d2230; --muted: #6a7f8d; --line: #e3ebf0;
+    --accent: #13a0bf; --accent2: #0d7fa6; --tint: rgba(19,160,191,.12);
+    --good: #1c8c50; --goodbg: rgba(28,140,80,.10); --bad: #c43d2f; --badbg: rgba(196,61,47,.10);
+    --shadow: 0 1px 2px rgba(8,50,79,.05), 0 10px 28px rgba(8,50,79,.07);
   }
   @media (prefers-color-scheme: dark) {
-    :root { --bg: #0c1820; --card: #14242f; --ink: #e8f1f6; --muted: #93a9b7; --line: #22394a; }
+    :root {
+      --bg: #07131b; --card: #0f202c; --field: #0a1923; --ink: #e7f1f7; --muted: #8aa1b0; --line: #1b3140;
+      --tint: rgba(19,160,191,.18); --goodbg: rgba(46,180,110,.14); --good: #4fcf8c; --badbg: rgba(230,90,75,.15); --bad: #ff8a7a;
+      --shadow: 0 0 0 1px rgba(255,255,255,.04);
+    }
   }
-  * { box-sizing: border-box; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   body {
-    margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    background: var(--bg); color: var(--ink); font-size: 16px;
-    padding: env(safe-area-inset-top) 0 calc(24px + env(safe-area-inset-bottom));
+    margin: 0; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+    background: var(--bg); color: var(--ink); font-size: 16px; line-height: 1.35;
+    padding-bottom: calc(28px + env(safe-area-inset-bottom));
   }
-  header { background: var(--pool); color: #fff; padding: 18px 16px 22px; }
-  header h1 { margin: 0 0 12px; font-size: 20px; font-weight: 700; letter-spacing: .3px; }
-  .nav { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-  .nav button { background: rgba(255,255,255,.15); color: #fff; border: 0; border-radius: 10px; width: 40px; height: 36px; font-size: 18px; }
-  .nav .label { font-size: 15px; text-align: center; flex: 1; }
-  .stats { display: flex; gap: 10px; margin-top: 14px; }
-  .stat { flex: 1; background: rgba(255,255,255,.12); border-radius: 12px; padding: 10px 12px; }
-  .stat .k { font-size: 12px; opacity: .8; }
-  .stat .v { font-size: 24px; font-weight: 700; margin-top: 2px; font-variant-numeric: tabular-nums; }
-  main { padding: 0 12px; max-width: 560px; margin: 0 auto; }
-  .card { background: var(--card); border-radius: 14px; padding: 14px; margin-top: 14px; border: 1px solid var(--line); }
-  .card h2 { margin: 0 0 10px; font-size: 16px; }
-  label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+  button { font-family: inherit; cursor: pointer; }
+
+  /* header */
+  header {
+    position: relative; overflow: hidden; color: #fff;
+    background: linear-gradient(155deg, #072b44 0%, #0b5577 55%, #12a2c0 100%);
+    padding: calc(16px + env(safe-area-inset-top)) 18px 46px;
+    border-radius: 0 0 30px 30px;
+  }
+  header::before, header::after { content: ""; position: absolute; border-radius: 50%; pointer-events: none; }
+  header::before { width: 280px; height: 280px; right: -110px; top: -140px; background: rgba(255,255,255,.07); }
+  header::after { width: 180px; height: 180px; left: -70px; bottom: -110px; background: rgba(255,255,255,.05); }
+  .brand { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; position: relative; }
+  .brand .logo { width: 34px; height: 34px; border-radius: 11px; background: rgba(255,255,255,.16); display: grid; place-items: center; font-size: 19px; }
+  .brand h1 { margin: 0; font-size: 21px; font-weight: 800; letter-spacing: -.2px; }
+  .nav { position: relative; display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,.12); border-radius: 14px; padding: 4px; }
+  .nav button { background: transparent; color: #fff; border: 0; border-radius: 10px; width: 40px; height: 36px; font-size: 22px; line-height: 1; }
+  .nav button:active { background: rgba(255,255,255,.15); }
+  .nav .label { flex: 1; text-align: center; font-size: 14px; font-weight: 600; }
+  .nav .label small { display: block; font-size: 11px; font-weight: 500; opacity: .75; margin-top: 1px; }
+  .stats { position: relative; display: flex; gap: 10px; margin-top: 12px; }
+  .stat { flex: 1; background: rgba(255,255,255,.11); border: 1px solid rgba(255,255,255,.12); border-radius: 16px; padding: 12px 14px; }
+  .stat .k { font-size: 11px; text-transform: uppercase; letter-spacing: .7px; opacity: .8; font-weight: 600; }
+  .stat .v { font-size: 28px; font-weight: 800; margin-top: 2px; letter-spacing: -.5px; font-variant-numeric: tabular-nums; }
+
+  /* layout */
+  main { padding: 0 14px; max-width: 560px; margin: -26px auto 0; position: relative; }
+  .card { background: var(--card); border-radius: 22px; padding: 18px 16px; margin-bottom: 14px; box-shadow: var(--shadow); }
+  .ct { display: flex; align-items: center; gap: 10px; margin: 0 0 14px; font-size: 17px; font-weight: 700; }
+  .ic { width: 32px; height: 32px; border-radius: 10px; background: var(--tint); display: grid; place-items: center; font-size: 16px; flex-shrink: 0; }
+  label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin: 0 0 6px 2px; }
   input, select {
-    width: 100%; font-size: 16px; padding: 10px; border-radius: 10px;
-    border: 1px solid var(--line); background: var(--bg); color: var(--ink);
+    display: block; width: 100%; min-height: 48px; font: inherit; font-size: 16px; padding: 12px 14px;
+    border-radius: 14px; border: 1.5px solid transparent; background: var(--field); color: var(--ink);
+    -webkit-appearance: none; appearance: none; outline: none; text-align: left;
+    transition: border-color .15s, box-shadow .15s;
   }
-  .row { display: flex; gap: 10px; margin-bottom: 10px; }
+  input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 4px var(--tint); }
+  input::placeholder { color: var(--muted); opacity: .7; }
+  select {
+    padding-right: 38px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' stroke='%236a7f8d' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 14px center;
+  }
+  .row { display: flex; gap: 10px; margin-bottom: 12px; }
   .row > div { flex: 1; min-width: 0; }
-  .btn { width: 100%; border: 0; border-radius: 10px; padding: 12px; font-size: 16px; font-weight: 600; background: var(--accent); color: #fff; }
-  .btn.secondary { background: var(--line); color: var(--ink); }
-  .btn.small { padding: 8px 10px; font-size: 14px; width: auto; }
+  .btn {
+    display: block; width: 100%; border: 0; border-radius: 15px; padding: 15px; font-size: 16px; font-weight: 700; color: #fff;
+    background: linear-gradient(135deg, var(--accent), var(--accent2)); box-shadow: 0 8px 18px rgba(19,160,191,.28);
+    transition: transform .1s, opacity .15s;
+  }
+  .btn:active { transform: scale(.98); }
+  .btn:disabled { opacity: .55; }
+  .btn.secondary { background: var(--field); color: var(--ink); box-shadow: none; }
+  .btn.small { display: inline-block; width: auto; padding: 9px 14px; font-size: 14px; font-weight: 600; border-radius: 12px; }
   .btns { display: flex; gap: 10px; }
-  .stepper { display: flex; gap: 8px; }
-  .stepper button { flex: 0 0 48px; border: 0; border-radius: 10px; background: var(--line); color: var(--ink); font-size: 22px; font-weight: 600; }
-  .stepper input { text-align: center; font-weight: 600; }
-  .shift { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-top: 1px solid var(--line); gap: 10px; }
-  .shift:first-child { border-top: 0; }
-  .shift .main { font-weight: 600; }
+  .stepper { display: flex; gap: 8px; align-items: stretch; }
+  .stepper button { flex: 0 0 52px; border: 0; border-radius: 14px; background: var(--tint); color: var(--accent); font-size: 24px; font-weight: 700; }
+  .stepper button:active { transform: scale(.95); }
+  .stepper input { text-align: center; font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+  .shift { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-top: 1px solid var(--line); gap: 10px; }
+  .shift:first-of-type { border-top: 0; }
+  .shift .main { font-weight: 700; }
   .shift .sub { font-size: 13px; color: var(--muted); margin-top: 2px; }
   .shift .right { text-align: right; font-variant-numeric: tabular-nums; flex-shrink: 0; }
-  .shift .actions { display: flex; gap: 6px; margin-top: 4px; justify-content: flex-end; }
-  .link { background: none; border: 0; color: var(--accent); font-size: 13px; padding: 2px 4px; }
+  .shift .actions { display: flex; gap: 4px; margin-top: 4px; justify-content: flex-end; }
+  .link { background: none; border: 0; color: var(--accent); font-size: 13px; font-weight: 600; padding: 2px 4px; }
   .link.del { color: var(--bad); }
-  .empty { color: var(--muted); font-size: 14px; text-align: center; padding: 8px 0; }
-  .result { margin-top: 10px; padding: 12px; border-radius: 10px; font-size: 14px; line-height: 1.45; }
-  .result.ok { background: rgba(31,138,76,.12); color: var(--good); }
-  .result.off { background: rgba(192,57,43,.12); color: var(--bad); }
-  .hint { font-size: 12px; color: var(--muted); margin-top: 8px; line-height: 1.4; }
-  details summary { font-weight: 600; cursor: pointer; }
-  details[open] summary { margin-bottom: 10px; }
-  .poolbox { border: 1px solid var(--line); border-radius: 12px; padding: 10px; margin-bottom: 12px; }
+  .empty { color: var(--muted); font-size: 14px; padding: 6px 0; }
+  .result { display: flex; gap: 10px; align-items: flex-start; margin-top: 12px; padding: 12px 14px; border-radius: 14px; font-size: 14px; line-height: 1.45; }
+  .result .mark { font-weight: 800; font-size: 16px; line-height: 1.3; }
+  .result.ok { background: var(--goodbg); color: var(--good); }
+  .result.off { background: var(--badbg); color: var(--bad); }
+  .hint { font-size: 12px; color: var(--muted); margin-top: 10px; line-height: 1.45; }
+  .divider { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 12px; margin: 14px 0 12px; }
+  .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+
+  details > summary { list-style: none; display: flex; align-items: center; gap: 10px; font-size: 17px; font-weight: 700; cursor: pointer; }
+  details > summary::-webkit-details-marker { display: none; }
+  details > summary .chev { margin-left: auto; color: var(--muted); transition: transform .2s; font-size: 14px; }
+  details[open] > summary .chev { transform: rotate(90deg); }
+  details[open] > summary { margin-bottom: 14px; }
+  .poolbox { background: var(--field); border-radius: 16px; padding: 12px; margin-bottom: 12px; }
+  .poolbox input { background: var(--card); }
   .poolhead { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
-  .poolhead input { font-weight: 600; }
+  .poolhead input { font-weight: 700; }
   .posrow { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
-  .posrow .pname { flex: 1.6; }
-  .posrow .prate { flex: 1; }
-  .xbtn { flex: 0 0 36px; height: 40px; border: 0; border-radius: 10px; background: transparent; color: var(--bad); font-size: 20px; }
-  .sectionlabel { font-size: 13px; font-weight: 600; margin: 16px 0 8px; }
+  .posrow .pname { flex: 1.6; min-width: 0; }
+  .posrow .prate { flex: 1; min-width: 0; }
+  .xbtn { flex: 0 0 36px; height: 44px; border: 0; border-radius: 12px; background: transparent; color: var(--bad); font-size: 20px; }
+  .sectionlabel { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; margin: 20px 0 10px 2px; }
+  .review { background: var(--field); border-radius: 16px; padding: 14px; margin-bottom: 4px; }
+  .review input { background: var(--card); }
+  .review .hint { margin: 0 0 12px; }
+  .rawtext { margin-top: 10px; }
+  .rawtext summary { font-size: 12px; font-weight: 600; color: var(--muted); }
+  .rawtext pre { white-space: pre-wrap; font-size: 11px; color: var(--muted); background: var(--card); border-radius: 10px; padding: 10px; max-height: 220px; overflow: auto; margin: 8px 0 0; }
+  .status { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); margin: 0 0 12px; }
+  .spin { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--tint); border-top-color: var(--accent); animation: spin .8s linear infinite; flex-shrink: 0; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* calendar */
   .minical { cursor: pointer; }
-  .calhead { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; gap: 8px; }
-  .calhead h2 { margin: 0; }
-  .calhead .tot { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
-  .wk { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-size: 11px; color: var(--muted); margin-bottom: 4px; font-weight: 600; }
+  .calhead { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 8px; }
+  .calhead .ct { margin: 0; }
+  .calhead .tot { font-size: 13px; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; text-align: right; }
+  .wk { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-size: 11px; color: var(--muted); margin-bottom: 6px; font-weight: 700; }
   .cal { display: grid; grid-template-columns: repeat(7, 1fr); row-gap: 4px; }
-  .cday { display: flex; flex-direction: column; align-items: center; min-height: 46px; background: none; border: 0; color: var(--ink); padding: 2px 0; font: inherit; }
-  .cday .num { width: 32px; height: 32px; line-height: 32px; border-radius: 50%; font-size: 16px; text-align: center; }
-  .cal.mini .cday { min-height: 36px; }
-  .cal.mini .num { width: 24px; height: 24px; line-height: 24px; font-size: 13px; }
+  .cday { display: flex; flex-direction: column; align-items: center; min-height: 50px; background: none; border: 0; color: var(--ink); padding: 2px 0; font: inherit; }
+  .cday .num { width: 34px; height: 34px; line-height: 34px; border-radius: 50%; font-size: 16px; text-align: center; transition: background .15s; }
+  .cal.mini .cday { min-height: 38px; }
+  .cal.mini .num { width: 26px; height: 26px; line-height: 26px; font-size: 13px; }
   .cday.blank { visibility: hidden; }
-  .cday.today .num { color: var(--accent); font-weight: 700; }
-  .cday.has .num { background: rgba(26,163,200,.18); font-weight: 600; }
-  .cday.sel .num { background: var(--accent); color: #fff; font-weight: 700; }
-  .cday .hrs { font-size: 10px; color: var(--accent); font-weight: 600; height: 12px; line-height: 12px; margin-top: 1px; }
-  .taphint { font-size: 12px; color: var(--muted); text-align: center; margin-top: 6px; }
-  .modal { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 10; display: flex; align-items: flex-end; }
+  .cday.today .num { color: var(--accent); font-weight: 800; box-shadow: inset 0 0 0 1.5px var(--accent); }
+  .cday.has .num { background: var(--tint); color: var(--accent); font-weight: 700; }
+  .cday.sel .num { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff; font-weight: 800; box-shadow: none; }
+  .cday .hrs { font-size: 10px; color: var(--accent); font-weight: 700; height: 12px; line-height: 12px; margin-top: 2px; }
+  .taphint { font-size: 12px; color: var(--muted); text-align: center; margin-top: 8px; }
+  .modal { position: fixed; inset: 0; background: rgba(3,15,24,.5); z-index: 10; display: flex; align-items: flex-end; animation: fade .2s; }
   .modal[hidden] { display: none; }
-  .sheet { background: var(--card); width: 100%; max-width: 560px; margin: 0 auto; height: 92vh; border-radius: 16px 16px 0 0; padding: 10px 14px calc(20px + env(safe-area-inset-bottom)); overflow-y: auto; animation: sheetup .25s ease-out; }
+  @keyframes fade { from { opacity: 0; } }
+  .sheet { background: var(--card); width: 100%; max-width: 560px; margin: 0 auto; height: 92vh; border-radius: 24px 24px 0 0; padding: 8px 16px calc(24px + env(safe-area-inset-bottom)); overflow-y: auto; animation: sheetup .28s cubic-bezier(.2,.8,.2,1); }
   @keyframes sheetup { from { transform: translateY(100%); } to { transform: none; } }
+  .grabber { width: 38px; height: 5px; border-radius: 3px; background: var(--line); margin: 2px auto 8px; }
   .sheetbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
-  .sheetbar button { background: none; border: 0; color: var(--accent); font-size: 16px; font-weight: 600; padding: 6px 2px; }
-  .calnav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
-  .calnav .mtitle { font-size: 22px; font-weight: 700; }
-  .calnav button { background: var(--line); border: 0; border-radius: 10px; width: 40px; height: 36px; font-size: 18px; color: var(--ink); }
-  .daytitle { font-weight: 700; margin: 16px 0 4px; }
+  .sheetbar button { background: none; border: 0; color: var(--accent); font-size: 16px; font-weight: 700; padding: 6px 2px; }
+  .calnav { display: flex; align-items: center; justify-content: space-between; margin: 4px 0 14px; }
+  .calnav .mtitle { font-size: 24px; font-weight: 800; letter-spacing: -.3px; }
+  .calnav button { background: var(--field); border: 0; border-radius: 12px; width: 42px; height: 38px; font-size: 20px; color: var(--ink); }
+  .monthtot { text-align: center; font-size: 13px; font-weight: 600; color: var(--muted); margin-top: 10px; }
+  .daytitle { font-weight: 800; font-size: 17px; margin: 18px 0 6px; }
 </style>
 </head>
 <body>
 <header>
-  <h1>🛟 Shift Log</h1>
+  <div class="brand"><div class="logo">🛟</div><h1>Shift Log</h1></div>
   <div class="nav">
     <button id="prev" aria-label="Previous pay period">‹</button>
-    <div class="label" id="periodLabel"></div>
+    <div class="label"><span id="periodLabel"></span><small id="periodSub">Pay period</small></div>
     <button id="next" aria-label="Next pay period">›</button>
   </div>
   <div class="stats">
     <div class="stat"><div class="k">Hours</div><div class="v" id="totHours">0.00</div></div>
-    <div class="stat"><div class="k">Expected gross</div><div class="v" id="totPay">$0.00</div></div>
+    <div class="stat"><div class="k">Expected pay</div><div class="v" id="totPay">$0.00</div></div>
   </div>
 </header>
 
 <main>
   <section class="card">
-    <h2 id="formTitle">Log a shift</h2>
-    <div id="noPools" class="hint" hidden style="margin:0 0 10px">Add a pool and its positions in <b>Pools &amp; settings</b> at the bottom first.</div>
+    <div class="ct"><div class="ic">✏️</div><span id="formTitle">Log a shift</span></div>
+    <div id="noPools" class="hint" hidden style="margin:-4px 0 12px">Add a pool and its positions in <b>Pools &amp; settings</b> at the bottom first.</div>
     <div class="row">
       <div><label for="fDate">Date</label><input type="date" id="fDate"></div>
     </div>
@@ -147,42 +210,48 @@
   </section>
 
   <section class="card minical" id="miniCard">
-    <div class="calhead"><h2 id="miniTitle"></h2><div class="tot" id="miniTot"></div></div>
+    <div class="calhead">
+      <div class="ct"><div class="ic">📅</div><span id="miniTitle"></span></div>
+      <div class="tot" id="miniTot"></div>
+    </div>
     <div class="wk"><div>S</div><div>M</div><div>T</div><div>W</div><div>T</div><div>F</div><div>S</div></div>
     <div class="cal mini" id="miniCal"></div>
     <div class="taphint">Tap to open the calendar</div>
   </section>
 
   <section class="card">
-    <h2>Check my paycheck</h2>
-    <button class="btn secondary" id="scanBtn" style="margin-bottom:10px">📷 Read a payslip screenshot</button>
+    <div class="ct"><div class="ic">💵</div>Check my paycheck</div>
+    <button class="btn secondary" id="scanBtn">📷 Read a payslip screenshot</button>
     <input type="file" id="scanFile" accept="image/*" hidden>
-    <div id="scanStatus" class="hint" style="margin:0 0 10px" hidden></div>
-    <div id="scanReview" class="poolbox" hidden>
-      <div class="hint" style="margin:0 0 10px">Here's what it read. Fix anything that's wrong, then tap <b>Use these</b>.</div>
+    <div id="scanStatus" class="status" hidden style="margin-top:12px"><div class="spin" id="scanSpin"></div><span id="scanMsg"></span></div>
+    <div id="scanReview" class="review" hidden style="margin-top:12px">
+      <div class="hint">Here's what it read. Fix anything that's wrong, then tap <b>Use these</b>.</div>
       <div class="row">
         <div><label for="rStart">Period start</label><input type="date" id="rStart"></div>
         <div><label for="rEnd">Period end</label><input type="date" id="rEnd"></div>
       </div>
       <div class="row">
+        <div><label for="rHours">Hours</label><input type="number" id="rHours" step="0.01" inputmode="decimal" placeholder="Optional"></div>
         <div><label for="rGross">Gross pay</label><input type="number" id="rGross" step="0.01" inputmode="decimal" placeholder="0.00"></div>
       </div>
       <div class="btns">
         <button class="btn" id="rApply">Use these</button>
         <button class="btn secondary" id="rCancel">Cancel</button>
       </div>
+      <details class="rawtext"><summary>Show the text it read</summary><pre id="rawText"></pre></details>
     </div>
+    <div class="divider">or type it in</div>
     <div class="row">
       <div><label for="cGross">Gross pay on paystub</label><input type="number" id="cGross" step="0.01" inputmode="decimal" placeholder="0.00"></div>
     </div>
     <button class="btn" id="runCheck">Compare</button>
     <div id="checkResult"></div>
-    <div class="hint">Compare gross pay (before taxes), not take-home. If your employer pays a period behind, use the arrows to go to the period the paycheck actually covers.</div>
+    <div class="hint">Compare gross pay (before taxes), not take-home. If your employer pays a period behind, use the arrows at the top to go to the period the paycheck actually covers.</div>
   </section>
 
   <section class="card">
     <details id="settingsBox">
-      <summary>Pools &amp; settings</summary>
+      <summary><div class="ic">⚙️</div>Pools &amp; settings<span class="chev">›</span></summary>
 
       <div class="sectionlabel" style="margin-top:0">Pools and pay rates</div>
       <div id="poolEditor"></div>
@@ -198,7 +267,7 @@
             <option value="14">Every 2 weeks</option>
           </select>
         </div>
-        <div><label for="sAnchor">First day of any period</label><input type="date" id="sAnchor"></div>
+        <div><label for="sAnchor">First day of a period</label><input type="date" id="sAnchor"></div>
       </div>
 
       <div class="sectionlabel">Backup</div>
@@ -214,6 +283,7 @@
 
 <div class="modal" id="calModal" hidden>
   <div class="sheet" id="calSheet">
+    <div class="grabber"></div>
     <div class="sheetbar"><button id="calToday">Today</button><button id="calClose">Done</button></div>
     <div class="calnav">
       <button id="calPrev" aria-label="Previous month">‹</button>
@@ -222,7 +292,7 @@
     </div>
     <div class="wk"><div>S</div><div>M</div><div>T</div><div>W</div><div>T</div><div>F</div><div>S</div></div>
     <div class="cal" id="bigCal"></div>
-    <div class="hint" id="calMonthTot" style="text-align:center"></div>
+    <div class="monthtot" id="calMonthTot"></div>
     <div id="dayDetail"></div>
   </div>
 </div>
@@ -309,7 +379,8 @@ function render() {
   const end = periodEnd(viewStart);
   const opts = { month: 'short', day: 'numeric' };
   const isCurrent = viewStart === periodStartFor(todayStr());
-  $('periodLabel').textContent = fmtDate(viewStart, opts) + ' – ' + fmtDate(end, opts) + (isCurrent ? ' (current)' : '');
+  $('periodLabel').textContent = fmtDate(viewStart, opts) + ' – ' + fmtDate(end, opts);
+  $('periodSub').textContent = isCurrent ? 'Current pay period' : 'Pay period';
 
   const list = shiftsIn(viewStart);
   const hours = list.reduce((t, s) => t + shiftHours(s), 0);
@@ -323,28 +394,51 @@ function render() {
   const c = state.checks[viewStart];
   $('cGross').value = c ? c.gross : '';
   $('checkResult').innerHTML = '';
-  if (c) showCheck(c, pay);
+  if (c) showCheck(c, hours, pay);
+}
+
+function resultBox(ok, text) {
+  const r = document.createElement('div');
+  r.className = 'result ' + (ok ? 'ok' : 'off');
+  const mark = document.createElement('div'); mark.className = 'mark'; mark.textContent = ok ? '✓' : '!';
+  const body = document.createElement('div'); body.textContent = text;
+  r.append(mark, body);
+  return r;
+}
+function showCheck(c, hours, pay) {
+  const box = $('checkResult');
+  box.innerHTML = '';
+  if (typeof c.hours === 'number') {
+    const dh = c.hours - hours;
+    if (Math.abs(dh) < 0.01) box.appendChild(resultBox(true, 'Hours match: ' + fmtHours(hours) + ' h.'));
+    else if (dh < 0) box.appendChild(resultBox(false, 'Your payslip shows ' + fmtHours(-dh) + ' fewer hours than you logged (' + fmtHours(c.hours) + ' vs ' + fmtHours(hours) + ').'));
+    else box.appendChild(resultBox(false, 'Your payslip shows ' + fmtHours(dh) + ' more hours than you logged (' + fmtHours(c.hours) + ' vs ' + fmtHours(hours) + ').'));
+  }
+  const dp = c.gross - pay;
+  if (Math.abs(dp) < 0.01) box.appendChild(resultBox(true, 'Pay matches: ' + money(pay) + '.'));
+  else if (dp < 0) box.appendChild(resultBox(false, 'You may be underpaid by ' + money(-dp) + '. Expected ' + money(pay) + ', got ' + money(c.gross) + '.'));
+  else box.appendChild(resultBox(false, 'Your paycheck is ' + money(dp) + ' more than expected. Expected ' + money(pay) + ', got ' + money(c.gross) + '.'));
 }
 
 function shiftRow(s) {
-    const el = document.createElement('div');
-    el.className = 'shift';
-    el.innerHTML =
-      '<div><div class="main"></div><div class="sub"></div></div>' +
-      '<div class="right"><div class="main h"></div><div class="sub p"></div>' +
-      '<div class="actions"><button class="link" data-edit>Edit</button><button class="link del" data-del>Delete</button></div></div>';
-    el.querySelector('.main').textContent = shiftLabel(s) || 'Shift';
-    el.querySelector('.sub').textContent = money(s.rate || 0) + '/h' + (s.note ? ' · ' + s.note : '');
-    el.querySelector('.h').textContent = fmtHours(shiftHours(s)) + ' h';
-    el.querySelector('.p').textContent = money(shiftPay(s));
-    el.querySelector('[data-edit]').onclick = () => startEdit(s.id);
-    el.querySelector('[data-del]').onclick = () => {
-      if (confirm('Delete the shift on ' + fmtDate(s.date) + '?')) {
-        state.shifts = state.shifts.filter(x => x.id !== s.id);
-        save(); render();
-      }
-    };
-    return el;
+  const el = document.createElement('div');
+  el.className = 'shift';
+  el.innerHTML =
+    '<div><div class="main"></div><div class="sub"></div></div>' +
+    '<div class="right"><div class="main h"></div><div class="sub p"></div>' +
+    '<div class="actions"><button class="link" data-edit>Edit</button><button class="link del" data-del>Delete</button></div></div>';
+  el.querySelector('.main').textContent = shiftLabel(s) || 'Shift';
+  el.querySelector('.sub').textContent = money(s.rate || 0) + '/h' + (s.note ? ' · ' + s.note : '');
+  el.querySelector('.h').textContent = fmtHours(shiftHours(s)) + ' h';
+  el.querySelector('.p').textContent = money(shiftPay(s));
+  el.querySelector('[data-edit]').onclick = () => startEdit(s.id);
+  el.querySelector('[data-del]').onclick = () => {
+    if (confirm('Delete the shift on ' + fmtDate(s.date) + '?')) {
+      state.shifts = state.shifts.filter(x => x.id !== s.id);
+      save(); render();
+    }
+  };
+  return el;
 }
 
 // ---------- calendar ----------
@@ -380,7 +474,7 @@ function buildCal(el, y, m, opts) {
 }
 function renderMiniCal() {
   const now = new Date(), y = now.getFullYear(), m = now.getMonth();
-  $('miniTitle').textContent = now.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+  $('miniTitle').textContent = now.toLocaleDateString(undefined, { month: 'long' });
   const t = monthTotals(y, m);
   $('miniTot').textContent = fmtHours(t.hours) + ' h · ' + money(t.pay);
   buildCal($('miniCal'), y, m, { mini: true });
@@ -414,17 +508,23 @@ function renderModal() {
   box.appendChild(title);
   const list = shiftsByDate()[calSel] || [];
   if (!list.length) {
-    const e = document.createElement('div'); e.className = 'empty'; e.style.textAlign = 'left'; e.textContent = 'No shifts.';
+    const e = document.createElement('div'); e.className = 'empty'; e.textContent = 'No shifts.';
     box.appendChild(e);
   }
   for (const s of list) box.appendChild(shiftRow(s));
   const add = document.createElement('button');
-  add.className = 'btn secondary'; add.style.marginTop = '10px'; add.textContent = '+ Log a shift on this day';
+  add.className = 'btn secondary'; add.style.marginTop = '12px';
   const day = calSel;
-  add.onclick = () => {
-    closeCal(); resetForm(); $('fDate').value = day;
-    window.scrollTo({ top: $('formTitle').offsetTop - 20, behavior: 'smooth' });
-  };
+  if (list.length) {
+    add.textContent = 'Change this day’s shift';
+    add.onclick = () => startEdit(list[0].id);
+  } else {
+    add.textContent = '+ Log a shift on this day';
+    add.onclick = () => {
+      closeCal(); resetForm(); $('fDate').value = day;
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+  }
   box.appendChild(add);
 }
 $('miniCard').onclick = () => openCal();
@@ -441,23 +541,6 @@ $('bigCal').addEventListener('touchend', e => {
   if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) moveMonth(dx < 0 ? 1 : -1);
   touchX = null;
 });
-
-function showCheck(c, pay) {
-  const dp = c.gross - pay;
-  const r = document.createElement('div');
-  if (Math.abs(dp) < 0.01) {
-    r.className = 'result ok';
-    r.textContent = '✓ Your paycheck matches. Expected ' + money(pay) + ', got ' + money(c.gross) + '.';
-  } else if (dp < 0) {
-    r.className = 'result off';
-    r.textContent = '✗ You may be underpaid by ' + money(-dp) + '. Expected ' + money(pay) + ', got ' + money(c.gross) + '.';
-  } else {
-    r.className = 'result off';
-    r.textContent = '✗ Your paycheck is ' + money(dp) + ' more than expected. Expected ' + money(pay) + ', got ' + money(c.gross) + '.';
-  }
-  $('checkResult').innerHTML = '';
-  $('checkResult').appendChild(r);
-}
 
 // ---------- shift form ----------
 function fillPoolSelect(selectedPoolId) {
@@ -520,7 +603,7 @@ function startEdit(id) {
   $('fNote').value = s.note || '';
   fillPoolSelect(s.poolId);
   fillPosSelect(s.posId);
-  window.scrollTo({ top: $('formTitle').offsetTop - 20, behavior: 'smooth' });
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 $('saveShift').onclick = () => {
   const date = $('fDate').value;
@@ -540,6 +623,13 @@ $('saveShift').onclick = () => {
     date, hours, note: $('fNote').value.trim(),
     poolId: pool.id, posId: pos.id, poolName: pool.name, posName: pos.name
   };
+  // a day holds one shift: adding on a day that already has one replaces it
+  const others = state.shifts.filter(x => x.date === date && x.id !== editingId);
+  if (others.length) {
+    const desc = others.map(x => (shiftLabel(x) || 'shift') + ', ' + fmtHours(shiftHours(x)) + ' h').join('; ');
+    if (!confirm('There’s already a shift on ' + fmtDate(date) + ' (' + desc + '). Replace it?')) return;
+    state.shifts = state.shifts.filter(x => !others.includes(x));
+  }
   if (editingId) {
     const s = state.shifts.find(x => x.id === editingId);
     // keep the original rate unless the pool or position was changed
@@ -560,43 +650,95 @@ $('cancelEdit').onclick = () => resetForm();
 $('runCheck').onclick = () => {
   const gross = parseFloat($('cGross').value);
   if (isNaN(gross)) return alert('Enter the gross pay from your paystub.');
-  state.checks[viewStart] = { gross };
+  const prev = state.checks[viewStart] || {};
+  state.checks[viewStart] = typeof prev.hours === 'number' ? { gross, hours: prev.hours } : { gross };
   save(); render();
 };
 
 // ---------- payslip screenshot reading (runs on the phone, image is never uploaded) ----------
 const MONTHS = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, sept: 9, oct: 10, nov: 11, dec: 12 };
+const monthNum = w => MONTHS[w.toLowerCase().slice(0, 4)] || MONTHS[w.toLowerCase().slice(0, 3)] || 0;
 function isoOf(y, m, d) {
   if (y < 100) y += 2000;
-  if (m < 1 || m > 12 || d < 1 || d > 31 || y < 2000 || y > 2100) return null;
+  if (m < 1 || m > 12 || d < 1 || d > 31 || y < 1990 || y > 2100) return null;
+  // OCR often misreads a digit of the year; payslips being checked are recent, so pull far-off years to now
+  const cy = new Date().getFullYear();
+  if (y < cy - 1 || y > cy + 1) {
+    y = cy;
+    if (dayNum(y + '-' + String(m).padStart(2, '0') + '-' + String(Math.min(d, 28)).padStart(2, '0')) > dayNum(todayStr()) + 45) y = cy - 1;
+  }
   const dt = new Date(Date.UTC(y, m - 1, d));
   if (dt.getUTCMonth() !== m - 1) return null;
   return dt.toISOString().slice(0, 10);
 }
 function findDates(line, dayFirst) {
   const out = [];
-  const add = (iso, idx) => { if (iso) out.push({ iso, idx }); };
+  const add = (iso, idx) => { if (iso && !out.some(o => Math.abs(o.idx - idx) < 3)) out.push({ iso, idx }); };
+  const S = '[\\s\\-\\/.,]*';
   let m;
-  const ymd = /(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/g;
+  const ymd = /(\d{4})\s*[-\/.]\s*(\d{1,2})\s*[-\/.]\s*(\d{1,2})(?!\d)/g;
   while ((m = ymd.exec(line))) add(isoOf(+m[1], +m[2], +m[3]), m.index);
-  const nums = /(?:^|[^\d])(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4}|\d{2})(?!\d)/g;
+  const ymdN = new RegExp('(\\d{4})' + S + '([A-Za-z]{3,9})\\.?' + S + '(\\d{1,2})(?!\\d)', 'g');
+  while ((m = ymdN.exec(line))) { const mo = monthNum(m[2]); if (mo) add(isoOf(+m[1], mo, +m[3]), m.index); }
+  const nums = /(?:^|[^\d])(\d{1,2})\s*[-\/.]\s*(\d{1,2})\s*[-\/.]\s*(\d{4}|\d{2})(?!\d)/g;
   while ((m = nums.exec(line))) {
-    let a = +m[1], b = +m[2], mo, d;
+    const a = +m[1], b = +m[2];
+    let mo, d;
     if (a > 12) { d = a; mo = b; } else if (b > 12) { mo = a; d = b; } else if (dayFirst) { d = a; mo = b; } else { mo = a; d = b; }
-    add(isoOf(+m[3], mo, d), m.index);
+    add(isoOf(+m[3], mo, d), m.index + (m[0].length - m[0].trimStart().length));
   }
-  const named = /([A-Za-z]{3,9})\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})/g;
-  while ((m = named.exec(line))) { const mo = MONTHS[m[1].toLowerCase().slice(0, 4)] || MONTHS[m[1].toLowerCase().slice(0, 3)]; if (mo) add(isoOf(+m[3], mo, +m[2]), m.index); }
-  const named2 = /(\d{1,2})(?:st|nd|rd|th)?\s+([A-Za-z]{3,9})\.?,?\s+(\d{4})/g;
-  while ((m = named2.exec(line))) { const mo = MONTHS[m[2].toLowerCase().slice(0, 4)] || MONTHS[m[2].toLowerCase().slice(0, 3)]; if (mo) add(isoOf(+m[3], mo, +m[1]), m.index); }
+  const mdy = new RegExp('([A-Za-z]{3,9})\\.?' + S + '(\\d{1,2})(?:st|nd|rd|th)?' + S + '(\\d{4})(?!\\d)', 'g');
+  while ((m = mdy.exec(line))) { const mo = monthNum(m[1]); if (mo) add(isoOf(+m[3], mo, +m[2]), m.index); }
+  const dmy = new RegExp('(\\d{1,2})(?:st|nd|rd|th)?' + S + '([A-Za-z]{3,9})\\.?' + S + '(\\d{4}|\\d{2})(?!\\d)', 'g');
+  while ((m = dmy.exec(line))) { const mo = monthNum(m[2]); if (mo) add(isoOf(+m[3], mo, +m[1]), m.index); }
+  if (!out.length) {
+    // dates with no year, like "Nov 2 - Nov 15": assume the most recent one
+    const md = /([A-Za-z]{3,9})\.?\s+(\d{1,2})(?!\d)/g;
+    while ((m = md.exec(line))) {
+      const mo = monthNum(m[1]);
+      if (!mo) continue;
+      const cy = new Date().getFullYear();
+      let iso = isoOf(cy, mo, +m[2]);
+      if (iso && dayNum(iso) > dayNum(todayStr()) + 45) iso = isoOf(cy - 1, mo, +m[2]);
+      add(iso, m.index);
+    }
+  }
   return out.sort((x, y) => x.idx - y.idx).map(o => o.iso);
 }
-function findAmounts(line) {
+function findNumbers(line) {
   const out = [];
-  const re = /(\d{1,3}(?:,\d{3})+|\d+)\.(\d{2})(?!\d)/g;
+  const re = /(\d{1,3}(?:,\d{3})+|\d+)(?:\.(\d{1,4}))?/g;
   let m;
-  while ((m = re.exec(line))) out.push(parseFloat(m[1].replace(/,/g, '') + '.' + m[2]));
+  while ((m = re.exec(line))) out.push({ v: parseFloat(m[1].replace(/,/g, '') + (m[2] ? '.' + m[2] : '')), dec: m[2] ? m[2].length : 0 });
   return out;
+}
+const findAmounts = line => findNumbers(line).filter(n => n.dec === 2).map(n => n.v);
+function findHours(lines) {
+  // earnings rows look like "Instructing 12.00 19.20 230.40" (hours x rate = amount)
+  let total = 0, rows = 0;
+  for (const line of lines) {
+    const low = line.toLowerCase();
+    if (/net\s*pay|gross|total|deduction|tax|cpp|ei\b/.test(low)) continue;
+    const n = findNumbers(line).map(x => x.v);
+    for (let i = 0; i + 2 < n.length; i++) {
+      const h = n[i], r = n[i + 1], amt = n[i + 2];
+      if (h > 0 && h <= 120 && r >= 5 && r <= 150 && amt > 0 && Math.abs(h * r - amt) <= 0.05 + amt * 0.001) {
+        total += h; rows++; break;
+      }
+    }
+  }
+  if (rows) return Math.round(total * 100) / 100;
+  // otherwise look for a "total hours" style label
+  for (let i = 0; i < lines.length; i++) {
+    const low = lines[i].toLowerCase();
+    if (/(total|regular|worked)\s*(hours|hrs)|(hours|hrs)\s*(worked|total)|^hours\b/.test(low)) {
+      for (const l of [lines[i], lines[i + 1] || '']) {
+        const n = findNumbers(l.replace(/^[^\d]*/, '')).map(x => x.v).filter(v => v > 0 && v <= 200);
+        if (n.length) return n[0];
+      }
+    }
+  }
+  return null;
 }
 function parsePayslip(text, dayFirst) {
   const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
@@ -605,8 +747,8 @@ function parsePayslip(text, dayFirst) {
   for (const line of lines) {
     const low = line.toLowerCase();
     const ds = findDates(line, dayFirst);
-    const isPayDate = /(pay|cheque|check|deposit|payment|issue)\s*date|date\s*paid|advice\s*date/.test(low);
-    const isPeriod = /period|from|start|begin|ending|end date|through|thru/.test(low);
+    const isPayDate = /(pay|cheque|check|deposit|payment|issue|advice)\s*date|date\s*paid/.test(low) && !/period/.test(low);
+    const isPeriod = /period|from|start|begin|ending|end date|through|thru|week/.test(low);
     if (ds.length) {
       allDates.push(...ds);
       if ((isPeriod || periodCarry > 0) && !isPayDate) {
@@ -644,7 +786,7 @@ function parsePayslip(text, dayFirst) {
       if (diff === 6 || diff === 13) { start = all[i]; end = all[j]; break outer; }
     }
   }
-  return { start, end, gross };
+  return { start, end, gross, hours: findHours(lines) };
 }
 function readPayslipText(text) {
   const plausible = r => r.start && r.end && [7, 14].includes(dayNum(r.end) - dayNum(r.start) + 1);
@@ -653,6 +795,37 @@ function readPayslipText(text) {
   const b = parsePayslip(text, true);
   if (plausible(b)) return b;
   return a.start ? a : b;
+}
+
+// make the screenshot easier to read: bigger, greyscale, dark-mode screenshots flipped to dark-on-light
+async function prepImage(file) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = new Image();
+    await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = url; });
+    const w = img.naturalWidth, h = img.naturalHeight;
+    let scale = Math.min(3, Math.max(1, 2400 / w));
+    scale = Math.min(scale, Math.sqrt(12e6 / (w * h)));
+    const c = document.createElement('canvas');
+    c.width = Math.round(w * scale); c.height = Math.round(h * scale);
+    const g = c.getContext('2d');
+    g.imageSmoothingQuality = 'high';
+    g.drawImage(img, 0, 0, c.width, c.height);
+    const data = g.getImageData(0, 0, c.width, c.height), px = data.data;
+    let sum = 0;
+    for (let i = 0; i < px.length; i += 4) sum += 0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2];
+    const invert = sum / (px.length / 4) < 110;
+    for (let i = 0; i < px.length; i += 4) {
+      let v = 0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2];
+      if (invert) v = 255 - v;
+      v = Math.max(0, Math.min(255, (v - 128) * 1.5 + 140));
+      px[i] = px[i + 1] = px[i + 2] = v;
+    }
+    g.putImageData(data, 0, 0);
+    return c;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
 }
 
 let tesseractLoading = null;
@@ -669,7 +842,11 @@ function loadTesseract() {
   }
   return tesseractLoading;
 }
-function scanStatus(msg) { $('scanStatus').hidden = !msg; $('scanStatus').textContent = msg || ''; }
+function scanStatus(msg, busy) {
+  $('scanStatus').hidden = !msg;
+  $('scanMsg').textContent = msg || '';
+  $('scanSpin').hidden = !busy;
+}
 
 $('scanBtn').onclick = () => $('scanFile').click();
 $('scanFile').onchange = async e => {
@@ -679,32 +856,37 @@ $('scanFile').onchange = async e => {
   $('scanReview').hidden = true;
   $('scanBtn').disabled = true;
   try {
-    scanStatus('Getting the text reader ready (only slow the first time)…');
+    scanStatus('Getting the text reader ready (only slow the first time)…', true);
     await loadTesseract();
+    const img = await prepImage(file);
     const worker = await Tesseract.createWorker('eng', 1, {
-      logger: m => { if (m.status === 'recognizing text') scanStatus('Reading your payslip… ' + Math.round(m.progress * 100) + '%'); }
+      logger: m => { if (m.status === 'recognizing text') scanStatus('Reading your payslip… ' + Math.round(m.progress * 100) + '%', true); }
     });
-    const { data } = await worker.recognize(file);
+    const { data } = await worker.recognize(img);
     await worker.terminate();
-    const r = readPayslipText(data.text || '');
+    const text = data.text || '';
+    const r = readPayslipText(text);
+    $('rawText').textContent = text.trim() || '(no text found)';
     $('rStart').value = r.start || '';
     $('rEnd').value = r.end || '';
     $('rGross').value = r.gross != null ? r.gross.toFixed(2) : '';
+    $('rHours').value = r.hours != null ? r.hours.toFixed(2) : '';
     const missing = [];
     if (!r.start || !r.end) missing.push('the pay period dates');
     if (r.gross == null) missing.push('the gross pay');
-    scanStatus(missing.length ? "Couldn't find " + missing.join(' or ') + '. Fill in what’s missing below.' : '');
+    scanStatus(missing.length ? "Couldn't find " + missing.join(' or ') + '. Fill in what’s missing below.' : '', false);
     $('scanReview').hidden = false;
     $('scanReview').scrollIntoView({ behavior: 'smooth', block: 'center' });
   } catch (err) {
-    scanStatus("Couldn't read that image. Check you're online the first time you use this, then try again, or type the gross pay in below.");
+    scanStatus("Couldn't read that image. Check you're online the first time you use this, then try again, or type the gross pay in below.", false);
   } finally {
     $('scanBtn').disabled = false;
   }
 };
 $('rCancel').onclick = () => { $('scanReview').hidden = true; scanStatus(''); };
 $('rApply').onclick = () => {
-  const start = $('rStart').value, end = $('rEnd').value, gross = parseFloat($('rGross').value);
+  const start = $('rStart').value, end = $('rEnd').value;
+  const gross = parseFloat($('rGross').value), hours = parseFloat($('rHours').value);
   if (!start || !end) return alert('Fill in the period start and end dates.');
   if (isNaN(gross)) return alert('Fill in the gross pay.');
   const days = dayNum(end) - dayNum(start) + 1;
@@ -713,7 +895,7 @@ $('rApply').onclick = () => {
   else alert('This payslip covers ' + days + ' days. The app only handles weekly or every-2-weeks pay, so it will keep your current setting.');
   state.settings.anchor = start;
   viewStart = periodStartFor(start);
-  state.checks[viewStart] = { gross };
+  state.checks[viewStart] = isNaN(hours) ? { gross } : { gross, hours };
   save(); fillSettings(); render();
   $('scanReview').hidden = true; scanStatus('');
   $('checkResult').scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -728,7 +910,7 @@ function renderPools() {
   const box = $('poolEditor');
   box.innerHTML = '';
   if (!state.pools.length) {
-    box.innerHTML = '<div class="empty" style="text-align:left;margin-bottom:10px">No pools yet.</div>';
+    box.innerHTML = '<div class="empty" style="margin-bottom:10px">No pools yet.</div>';
   }
   for (const pool of state.pools) {
     const wrap = document.createElement('div');
