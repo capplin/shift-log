@@ -72,6 +72,32 @@
   .posrow .prate { flex: 1; }
   .xbtn { flex: 0 0 36px; height: 40px; border: 0; border-radius: 10px; background: transparent; color: var(--bad); font-size: 20px; }
   .sectionlabel { font-size: 13px; font-weight: 600; margin: 16px 0 8px; }
+  .minical { cursor: pointer; }
+  .calhead { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; gap: 8px; }
+  .calhead h2 { margin: 0; }
+  .calhead .tot { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .wk { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-size: 11px; color: var(--muted); margin-bottom: 4px; font-weight: 600; }
+  .cal { display: grid; grid-template-columns: repeat(7, 1fr); row-gap: 4px; }
+  .cday { display: flex; flex-direction: column; align-items: center; min-height: 46px; background: none; border: 0; color: var(--ink); padding: 2px 0; font: inherit; }
+  .cday .num { width: 32px; height: 32px; line-height: 32px; border-radius: 50%; font-size: 16px; text-align: center; }
+  .cal.mini .cday { min-height: 36px; }
+  .cal.mini .num { width: 24px; height: 24px; line-height: 24px; font-size: 13px; }
+  .cday.blank { visibility: hidden; }
+  .cday.today .num { color: var(--accent); font-weight: 700; }
+  .cday.has .num { background: rgba(26,163,200,.18); font-weight: 600; }
+  .cday.sel .num { background: var(--accent); color: #fff; font-weight: 700; }
+  .cday .hrs { font-size: 10px; color: var(--accent); font-weight: 600; height: 12px; line-height: 12px; margin-top: 1px; }
+  .taphint { font-size: 12px; color: var(--muted); text-align: center; margin-top: 6px; }
+  .modal { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 10; display: flex; align-items: flex-end; }
+  .modal[hidden] { display: none; }
+  .sheet { background: var(--card); width: 100%; max-width: 560px; margin: 0 auto; height: 92vh; border-radius: 16px 16px 0 0; padding: 10px 14px calc(20px + env(safe-area-inset-bottom)); overflow-y: auto; animation: sheetup .25s ease-out; }
+  @keyframes sheetup { from { transform: translateY(100%); } to { transform: none; } }
+  .sheetbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .sheetbar button { background: none; border: 0; color: var(--accent); font-size: 16px; font-weight: 600; padding: 6px 2px; }
+  .calnav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .calnav .mtitle { font-size: 22px; font-weight: 700; }
+  .calnav button { background: var(--line); border: 0; border-radius: 10px; width: 40px; height: 36px; font-size: 18px; color: var(--ink); }
+  .daytitle { font-weight: 700; margin: 16px 0 4px; }
 </style>
 </head>
 <body>
@@ -120,9 +146,11 @@
     </div>
   </section>
 
-  <section class="card">
-    <h2>Shifts this period</h2>
-    <div id="shiftList"></div>
+  <section class="card minical" id="miniCard">
+    <div class="calhead"><h2 id="miniTitle"></h2><div class="tot" id="miniTot"></div></div>
+    <div class="wk"><div>S</div><div>M</div><div>T</div><div>W</div><div>T</div><div>F</div><div>S</div></div>
+    <div class="cal mini" id="miniCal"></div>
+    <div class="taphint">Tap to open the calendar</div>
   </section>
 
   <section class="card">
@@ -183,6 +211,21 @@
     </details>
   </section>
 </main>
+
+<div class="modal" id="calModal" hidden>
+  <div class="sheet" id="calSheet">
+    <div class="sheetbar"><button id="calToday">Today</button><button id="calClose">Done</button></div>
+    <div class="calnav">
+      <button id="calPrev" aria-label="Previous month">‹</button>
+      <div class="mtitle" id="calTitle"></div>
+      <button id="calNext" aria-label="Next month">›</button>
+    </div>
+    <div class="wk"><div>S</div><div>M</div><div>T</div><div>W</div><div>T</div><div>F</div><div>S</div></div>
+    <div class="cal" id="bigCal"></div>
+    <div class="hint" id="calMonthTot" style="text-align:center"></div>
+    <div id="dayDetail"></div>
+  </div>
+</div>
 
 <script>
 const KEY = 'shiftlog-v1';
@@ -274,21 +317,24 @@ function render() {
   $('totHours').textContent = fmtHours(hours);
   $('totPay').textContent = money(pay);
 
-  const box = $('shiftList');
-  box.innerHTML = '';
-  if (!list.length) {
-    box.innerHTML = '<div class="empty">No shifts logged in this period yet.</div>';
-  }
-  for (const s of list) {
+  renderMiniCal();
+  if (!$('calModal').hidden) renderModal();
+
+  const c = state.checks[viewStart];
+  $('cGross').value = c ? c.gross : '';
+  $('checkResult').innerHTML = '';
+  if (c) showCheck(c, pay);
+}
+
+function shiftRow(s) {
     const el = document.createElement('div');
     el.className = 'shift';
     el.innerHTML =
       '<div><div class="main"></div><div class="sub"></div></div>' +
       '<div class="right"><div class="main h"></div><div class="sub p"></div>' +
       '<div class="actions"><button class="link" data-edit>Edit</button><button class="link del" data-del>Delete</button></div></div>';
-    el.querySelector('.main').textContent = fmtDate(s.date);
-    const label = shiftLabel(s);
-    el.querySelector('.sub').textContent = (label ? label + ' · ' : '') + money(s.rate || 0) + '/h' + (s.note ? ' · ' + s.note : '');
+    el.querySelector('.main').textContent = shiftLabel(s) || 'Shift';
+    el.querySelector('.sub').textContent = money(s.rate || 0) + '/h' + (s.note ? ' · ' + s.note : '');
     el.querySelector('.h').textContent = fmtHours(shiftHours(s)) + ' h';
     el.querySelector('.p').textContent = money(shiftPay(s));
     el.querySelector('[data-edit]').onclick = () => startEdit(s.id);
@@ -298,14 +344,103 @@ function render() {
         save(); render();
       }
     };
-    box.appendChild(el);
-  }
-
-  const c = state.checks[viewStart];
-  $('cGross').value = c ? c.gross : '';
-  $('checkResult').innerHTML = '';
-  if (c) showCheck(c, pay);
+    return el;
 }
+
+// ---------- calendar ----------
+const isoYMD = (y, m, d) => y + '-' + String(m + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+const hShort = n => (Math.round(n * 100) / 100) + 'h';
+let calYear = 0, calMonth = 0, calSel = null;
+function shiftsByDate() {
+  const map = {};
+  for (const s of state.shifts) (map[s.date] = map[s.date] || []).push(s);
+  return map;
+}
+function monthTotals(y, m) {
+  const prefix = isoYMD(y, m, 1).slice(0, 8);
+  const list = state.shifts.filter(s => s.date.slice(0, 8) === prefix);
+  return { hours: list.reduce((t, s) => t + shiftHours(s), 0), pay: list.reduce((t, s) => t + shiftPay(s), 0), count: list.length };
+}
+function buildCal(el, y, m, opts) {
+  el.innerHTML = '';
+  const by = shiftsByDate(), today = todayStr();
+  const first = new Date(y, m, 1).getDay(), days = new Date(y, m + 1, 0).getDate();
+  for (let i = 0; i < first; i++) { const b = document.createElement('div'); b.className = 'cday blank'; el.appendChild(b); }
+  for (let d = 1; d <= days; d++) {
+    const iso = isoYMD(y, m, d), list = by[iso] || [];
+    const b = document.createElement(opts.mini ? 'div' : 'button');
+    b.className = 'cday' + (iso === today ? ' today' : '') + (list.length ? ' has' : '') + (opts.sel === iso ? ' sel' : '');
+    const num = document.createElement('div'); num.className = 'num'; num.textContent = d;
+    const hrs = document.createElement('div'); hrs.className = 'hrs';
+    hrs.textContent = list.length ? hShort(list.reduce((t, s) => t + shiftHours(s), 0)) : '';
+    b.append(num, hrs);
+    if (!opts.mini) b.onclick = () => opts.onSelect(iso);
+    el.appendChild(b);
+  }
+}
+function renderMiniCal() {
+  const now = new Date(), y = now.getFullYear(), m = now.getMonth();
+  $('miniTitle').textContent = now.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+  const t = monthTotals(y, m);
+  $('miniTot').textContent = fmtHours(t.hours) + ' h · ' + money(t.pay);
+  buildCal($('miniCal'), y, m, { mini: true });
+}
+function openCal(iso) {
+  const d = iso || todayStr();
+  calYear = +d.slice(0, 4); calMonth = +d.slice(5, 7) - 1; calSel = d;
+  $('calModal').hidden = false;
+  document.body.style.overflow = 'hidden';
+  renderModal();
+}
+function closeCal() { $('calModal').hidden = true; document.body.style.overflow = ''; }
+function moveMonth(delta) {
+  calMonth += delta;
+  if (calMonth < 0) { calMonth = 11; calYear--; }
+  if (calMonth > 11) { calMonth = 0; calYear++; }
+  calSel = null;
+  renderModal();
+}
+function renderModal() {
+  $('calTitle').textContent = new Date(calYear, calMonth, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+  buildCal($('bigCal'), calYear, calMonth, { sel: calSel, onSelect: iso => { calSel = iso; renderModal(); } });
+  const t = monthTotals(calYear, calMonth);
+  $('calMonthTot').textContent = t.count ? t.count + (t.count === 1 ? ' shift · ' : ' shifts · ') + fmtHours(t.hours) + ' h · ' + money(t.pay) : 'No shifts this month';
+  const box = $('dayDetail');
+  box.innerHTML = '';
+  if (!calSel) return;
+  const title = document.createElement('div');
+  title.className = 'daytitle';
+  title.textContent = fmtDate(calSel, { weekday: 'long', month: 'long', day: 'numeric' });
+  box.appendChild(title);
+  const list = shiftsByDate()[calSel] || [];
+  if (!list.length) {
+    const e = document.createElement('div'); e.className = 'empty'; e.style.textAlign = 'left'; e.textContent = 'No shifts.';
+    box.appendChild(e);
+  }
+  for (const s of list) box.appendChild(shiftRow(s));
+  const add = document.createElement('button');
+  add.className = 'btn secondary'; add.style.marginTop = '10px'; add.textContent = '+ Log a shift on this day';
+  const day = calSel;
+  add.onclick = () => {
+    closeCal(); resetForm(); $('fDate').value = day;
+    window.scrollTo({ top: $('formTitle').offsetTop - 20, behavior: 'smooth' });
+  };
+  box.appendChild(add);
+}
+$('miniCard').onclick = () => openCal();
+$('calClose').onclick = closeCal;
+$('calToday').onclick = () => openCal(todayStr());
+$('calPrev').onclick = () => moveMonth(-1);
+$('calNext').onclick = () => moveMonth(1);
+$('calModal').onclick = e => { if (e.target === $('calModal')) closeCal(); };
+let touchX = null, touchY = null;
+$('bigCal').addEventListener('touchstart', e => { touchX = e.touches[0].clientX; touchY = e.touches[0].clientY; }, { passive: true });
+$('bigCal').addEventListener('touchend', e => {
+  if (touchX === null) return;
+  const dx = e.changedTouches[0].clientX - touchX, dy = e.changedTouches[0].clientY - touchY;
+  if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) moveMonth(dx < 0 ? 1 : -1);
+  touchX = null;
+});
 
 function showCheck(c, pay) {
   const dp = c.gross - pay;
@@ -375,6 +510,7 @@ function resetForm() {
 function startEdit(id) {
   const s = state.shifts.find(x => x.id === id);
   if (!s) return;
+  closeCal();
   editingId = id;
   $('formTitle').textContent = 'Edit shift';
   $('saveShift').textContent = 'Save changes';
