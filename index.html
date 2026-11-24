@@ -127,6 +127,23 @@
 
   <section class="card">
     <h2>Check my paycheck</h2>
+    <button class="btn secondary" id="scanBtn" style="margin-bottom:10px">📷 Read a payslip screenshot</button>
+    <input type="file" id="scanFile" accept="image/*" hidden>
+    <div id="scanStatus" class="hint" style="margin:0 0 10px" hidden></div>
+    <div id="scanReview" class="poolbox" hidden>
+      <div class="hint" style="margin:0 0 10px">Here's what it read. Fix anything that's wrong, then tap <b>Use these</b>.</div>
+      <div class="row">
+        <div><label for="rStart">Period start</label><input type="date" id="rStart"></div>
+        <div><label for="rEnd">Period end</label><input type="date" id="rEnd"></div>
+      </div>
+      <div class="row">
+        <div><label for="rGross">Gross pay</label><input type="number" id="rGross" step="0.01" inputmode="decimal" placeholder="0.00"></div>
+      </div>
+      <div class="btns">
+        <button class="btn" id="rApply">Use these</button>
+        <button class="btn secondary" id="rCancel">Cancel</button>
+      </div>
+    </div>
     <div class="row">
       <div><label for="cGross">Gross pay on paystub</label><input type="number" id="cGross" step="0.01" inputmode="decimal" placeholder="0.00"></div>
     </div>
@@ -409,6 +426,161 @@ $('runCheck').onclick = () => {
   if (isNaN(gross)) return alert('Enter the gross pay from your paystub.');
   state.checks[viewStart] = { gross };
   save(); render();
+};
+
+// ---------- payslip screenshot reading (runs on the phone, image is never uploaded) ----------
+const MONTHS = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, sept: 9, oct: 10, nov: 11, dec: 12 };
+function isoOf(y, m, d) {
+  if (y < 100) y += 2000;
+  if (m < 1 || m > 12 || d < 1 || d > 31 || y < 2000 || y > 2100) return null;
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  if (dt.getUTCMonth() !== m - 1) return null;
+  return dt.toISOString().slice(0, 10);
+}
+function findDates(line, dayFirst) {
+  const out = [];
+  const add = (iso, idx) => { if (iso) out.push({ iso, idx }); };
+  let m;
+  const ymd = /(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/g;
+  while ((m = ymd.exec(line))) add(isoOf(+m[1], +m[2], +m[3]), m.index);
+  const nums = /(?:^|[^\d])(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4}|\d{2})(?!\d)/g;
+  while ((m = nums.exec(line))) {
+    let a = +m[1], b = +m[2], mo, d;
+    if (a > 12) { d = a; mo = b; } else if (b > 12) { mo = a; d = b; } else if (dayFirst) { d = a; mo = b; } else { mo = a; d = b; }
+    add(isoOf(+m[3], mo, d), m.index);
+  }
+  const named = /([A-Za-z]{3,9})\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})/g;
+  while ((m = named.exec(line))) { const mo = MONTHS[m[1].toLowerCase().slice(0, 4)] || MONTHS[m[1].toLowerCase().slice(0, 3)]; if (mo) add(isoOf(+m[3], mo, +m[2]), m.index); }
+  const named2 = /(\d{1,2})(?:st|nd|rd|th)?\s+([A-Za-z]{3,9})\.?,?\s+(\d{4})/g;
+  while ((m = named2.exec(line))) { const mo = MONTHS[m[2].toLowerCase().slice(0, 4)] || MONTHS[m[2].toLowerCase().slice(0, 3)]; if (mo) add(isoOf(+m[3], mo, +m[1]), m.index); }
+  return out.sort((x, y) => x.idx - y.idx).map(o => o.iso);
+}
+function findAmounts(line) {
+  const out = [];
+  const re = /(\d{1,3}(?:,\d{3})+|\d+)\.(\d{2})(?!\d)/g;
+  let m;
+  while ((m = re.exec(line))) out.push(parseFloat(m[1].replace(/,/g, '') + '.' + m[2]));
+  return out;
+}
+function parsePayslip(text, dayFirst) {
+  const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  const periodDates = [], allDates = [];
+  let periodCarry = 0, endOnly = null, gross = null, grossCarry = 0;
+  for (const line of lines) {
+    const low = line.toLowerCase();
+    const ds = findDates(line, dayFirst);
+    const isPayDate = /(pay|cheque|check|deposit|payment|issue)\s*date|date\s*paid|advice\s*date/.test(low);
+    const isPeriod = /period|from|start|begin|ending|end date|through|thru/.test(low);
+    if (ds.length) {
+      allDates.push(...ds);
+      if ((isPeriod || periodCarry > 0) && !isPayDate) {
+        periodDates.push(...ds);
+        if (ds.length === 1 && /ending|end date|period end|to\b/.test(low) && !/start|begin|from/.test(low)) endOnly = ds[0];
+      }
+      periodCarry = 0;
+    } else if (isPeriod && !isPayDate) {
+      periodCarry = 2;
+    } else if (periodCarry > 0) {
+      periodCarry--;
+    }
+
+    if (gross === null) {
+      const isGross = /gross|total\s*earnings|earnings\s*total|total\s*pay(?!\w)/.test(low) && !/net\s*pay/.test(low);
+      const amts = findAmounts(line);
+      if (isGross && amts.length) gross = amts[0];
+      else if (isGross) grossCarry = 2;
+      else if (grossCarry > 0) { if (amts.length) { gross = amts[0]; grossCarry = 0; } else grossCarry--; }
+    }
+  }
+  let start = null, end = null;
+  const uniq = [...new Set(periodDates)];
+  if (uniq.length >= 2) {
+    const two = uniq.slice(0, 2).sort();
+    start = two[0]; end = two[1];
+  } else if (uniq.length === 1) {
+    if (endOnly) { end = uniq[0]; start = fromDayNum(dayNum(end) - state.settings.periodDays + 1); }
+    else { start = uniq[0]; end = fromDayNum(dayNum(start) + state.settings.periodDays - 1); }
+  }
+  if (!start) {
+    const all = [...new Set(allDates)].sort();
+    outer: for (let i = 0; i < all.length; i++) for (let j = i + 1; j < all.length; j++) {
+      const diff = dayNum(all[j]) - dayNum(all[i]);
+      if (diff === 6 || diff === 13) { start = all[i]; end = all[j]; break outer; }
+    }
+  }
+  return { start, end, gross };
+}
+function readPayslipText(text) {
+  const plausible = r => r.start && r.end && [7, 14].includes(dayNum(r.end) - dayNum(r.start) + 1);
+  const a = parsePayslip(text, false);
+  if (plausible(a)) return a;
+  const b = parsePayslip(text, true);
+  if (plausible(b)) return b;
+  return a.start ? a : b;
+}
+
+let tesseractLoading = null;
+function loadTesseract() {
+  if (window.Tesseract) return Promise.resolve();
+  if (!tesseractLoading) {
+    tesseractLoading = new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+      s.onload = resolve;
+      s.onerror = () => { tesseractLoading = null; reject(new Error('load')); };
+      document.head.appendChild(s);
+    });
+  }
+  return tesseractLoading;
+}
+function scanStatus(msg) { $('scanStatus').hidden = !msg; $('scanStatus').textContent = msg || ''; }
+
+$('scanBtn').onclick = () => $('scanFile').click();
+$('scanFile').onchange = async e => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  $('scanReview').hidden = true;
+  $('scanBtn').disabled = true;
+  try {
+    scanStatus('Getting the text reader ready (only slow the first time)…');
+    await loadTesseract();
+    const worker = await Tesseract.createWorker('eng', 1, {
+      logger: m => { if (m.status === 'recognizing text') scanStatus('Reading your payslip… ' + Math.round(m.progress * 100) + '%'); }
+    });
+    const { data } = await worker.recognize(file);
+    await worker.terminate();
+    const r = readPayslipText(data.text || '');
+    $('rStart').value = r.start || '';
+    $('rEnd').value = r.end || '';
+    $('rGross').value = r.gross != null ? r.gross.toFixed(2) : '';
+    const missing = [];
+    if (!r.start || !r.end) missing.push('the pay period dates');
+    if (r.gross == null) missing.push('the gross pay');
+    scanStatus(missing.length ? "Couldn't find " + missing.join(' or ') + '. Fill in what’s missing below.' : '');
+    $('scanReview').hidden = false;
+    $('scanReview').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  } catch (err) {
+    scanStatus("Couldn't read that image. Check you're online the first time you use this, then try again, or type the gross pay in below.");
+  } finally {
+    $('scanBtn').disabled = false;
+  }
+};
+$('rCancel').onclick = () => { $('scanReview').hidden = true; scanStatus(''); };
+$('rApply').onclick = () => {
+  const start = $('rStart').value, end = $('rEnd').value, gross = parseFloat($('rGross').value);
+  if (!start || !end) return alert('Fill in the period start and end dates.');
+  if (isNaN(gross)) return alert('Fill in the gross pay.');
+  const days = dayNum(end) - dayNum(start) + 1;
+  if (days < 1) return alert('The period end has to be after the start.');
+  if (days === 7 || days === 14) state.settings.periodDays = days;
+  else alert('This payslip covers ' + days + ' days. The app only handles weekly or every-2-weeks pay, so it will keep your current setting.');
+  state.settings.anchor = start;
+  viewStart = periodStartFor(start);
+  state.checks[viewStart] = { gross };
+  save(); fillSettings(); render();
+  $('scanReview').hidden = true; scanStatus('');
+  $('checkResult').scrollIntoView({ behavior: 'smooth', block: 'center' });
 };
 
 // ---------- navigation ----------
