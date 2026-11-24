@@ -44,12 +44,16 @@
   .row > div { flex: 1; min-width: 0; }
   .btn { width: 100%; border: 0; border-radius: 10px; padding: 12px; font-size: 16px; font-weight: 600; background: var(--accent); color: #fff; }
   .btn.secondary { background: var(--line); color: var(--ink); }
+  .btn.small { padding: 8px 10px; font-size: 14px; width: auto; }
   .btns { display: flex; gap: 10px; }
+  .stepper { display: flex; gap: 8px; }
+  .stepper button { flex: 0 0 48px; border: 0; border-radius: 10px; background: var(--line); color: var(--ink); font-size: 22px; font-weight: 600; }
+  .stepper input { text-align: center; font-weight: 600; }
   .shift { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-top: 1px solid var(--line); gap: 10px; }
   .shift:first-child { border-top: 0; }
   .shift .main { font-weight: 600; }
   .shift .sub { font-size: 13px; color: var(--muted); margin-top: 2px; }
-  .shift .right { text-align: right; font-variant-numeric: tabular-nums; }
+  .shift .right { text-align: right; font-variant-numeric: tabular-nums; flex-shrink: 0; }
   .shift .actions { display: flex; gap: 6px; margin-top: 4px; justify-content: flex-end; }
   .link { background: none; border: 0; color: var(--accent); font-size: 13px; padding: 2px 4px; }
   .link.del { color: var(--bad); }
@@ -60,6 +64,14 @@
   .hint { font-size: 12px; color: var(--muted); margin-top: 8px; line-height: 1.4; }
   details summary { font-weight: 600; cursor: pointer; }
   details[open] summary { margin-bottom: 10px; }
+  .poolbox { border: 1px solid var(--line); border-radius: 12px; padding: 10px; margin-bottom: 12px; }
+  .poolhead { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+  .poolhead input { font-weight: 600; }
+  .posrow { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+  .posrow .pname { flex: 1.6; }
+  .posrow .prate { flex: 1; }
+  .xbtn { flex: 0 0 36px; height: 40px; border: 0; border-radius: 10px; background: transparent; color: var(--bad); font-size: 20px; }
+  .sectionlabel { font-size: 13px; font-weight: 600; margin: 16px 0 8px; }
 </style>
 </head>
 <body>
@@ -79,22 +91,24 @@
 <main>
   <section class="card">
     <h2 id="formTitle">Log a shift</h2>
+    <div id="noPools" class="hint" hidden style="margin:0 0 10px">Add a pool and its positions in <b>Pools &amp; settings</b> at the bottom first.</div>
     <div class="row">
       <div><label for="fDate">Date</label><input type="date" id="fDate"></div>
     </div>
     <div class="row">
-      <div><label for="fStart">Start</label><input type="time" id="fStart" value="09:00"></div>
-      <div><label for="fEnd">End</label><input type="time" id="fEnd" value="17:00"></div>
+      <div><label for="fPool">Pool</label><select id="fPool"></select></div>
     </div>
     <div class="row">
-      <div><label for="fBreak">Unpaid break (min)</label><input type="number" id="fBreak" min="0" step="5" value="0" inputmode="numeric"></div>
+      <div><label for="fPos">Position</label><select id="fPos"></select></div>
+    </div>
+    <div class="row">
       <div>
-        <label for="fMult">Pay type</label>
-        <select id="fMult">
-          <option value="1">Regular</option>
-          <option value="1.5">Time and a half</option>
-          <option value="2">Double time</option>
-        </select>
+        <label for="fHours">Hours</label>
+        <div class="stepper">
+          <button type="button" id="hMinus" aria-label="Subtract 15 minutes">−</button>
+          <input type="number" id="fHours" step="0.25" min="0" inputmode="decimal" value="4">
+          <button type="button" id="hPlus" aria-label="Add 15 minutes">+</button>
+        </div>
       </div>
     </div>
     <div class="row">
@@ -114,7 +128,6 @@
   <section class="card">
     <h2>Check my paycheck</h2>
     <div class="row">
-      <div><label for="cHours">Hours on paystub</label><input type="number" id="cHours" step="0.01" inputmode="decimal" placeholder="0.00"></div>
       <div><label for="cGross">Gross pay on paystub</label><input type="number" id="cGross" step="0.01" inputmode="decimal" placeholder="0.00"></div>
     </div>
     <button class="btn" id="runCheck">Compare</button>
@@ -123,24 +136,28 @@
   </section>
 
   <section class="card">
-    <details>
-      <summary>Settings &amp; backup</summary>
+    <details id="settingsBox">
+      <summary>Pools &amp; settings</summary>
+
+      <div class="sectionlabel" style="margin-top:0">Pools and pay rates</div>
+      <div id="poolEditor"></div>
+      <button class="btn secondary" id="addPool">+ Add pool</button>
+      <div class="hint">Changing a rate applies to shifts you log from now on. Shifts already logged keep the rate they were logged at, so a raise won't change old pay periods.</div>
+
+      <div class="sectionlabel">Pay period</div>
       <div class="row">
-        <div><label for="sRate">Hourly rate ($)</label><input type="number" id="sRate" step="0.01" inputmode="decimal"></div>
         <div>
-          <label for="sDays">Pay period</label>
+          <label for="sDays">Paid</label>
           <select id="sDays">
             <option value="7">Weekly</option>
             <option value="14">Every 2 weeks</option>
           </select>
         </div>
+        <div><label for="sAnchor">First day of any period</label><input type="date" id="sAnchor"></div>
       </div>
-      <div class="row">
-        <div><label for="sAnchor">First day of any pay period</label><input type="date" id="sAnchor"></div>
-      </div>
-      <button class="btn" id="saveSettings">Save settings</button>
-      <div class="hint">A new rate applies to shifts you log from now on. Shifts already logged keep the rate they were logged at, so a raise won't change old periods.</div>
-      <div class="btns" style="margin-top:14px">
+
+      <div class="sectionlabel">Backup</div>
+      <div class="btns">
         <button class="btn secondary" id="exportBtn">Export backup</button>
         <button class="btn secondary" id="importBtn">Restore backup</button>
       </div>
@@ -153,6 +170,7 @@
 <script>
 const KEY = 'shiftlog-v1';
 const $ = id => document.getElementById(id);
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 
 // ---------- dates (all handled as "YYYY-MM-DD" strings in local time) ----------
 function todayStr() {
@@ -165,20 +183,23 @@ function fmtDate(s, opts) {
   const [y, m, d] = s.split('-').map(Number);
   return new Date(y, m - 1, d).toLocaleDateString(undefined, opts || { weekday: 'short', month: 'short', day: 'numeric' });
 }
-function fmtTime(t) {
-  const [h, m] = t.split(':').map(Number);
-  return new Date(2000, 0, 1, h, m).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
-}
-const money = n => '$' + n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+const money = n => n.toLocaleString('en-CA', { style: 'currency', currency: 'CAD' });
+const roundQ = n => Math.round(n * 4) / 4;
+const fmtHours = n => (Math.round(n * 100) / 100).toFixed(2);
 
 // ---------- state ----------
 function defaults() {
-  return { settings: { rate: 0, periodDays: 14, anchor: todayStr() }, shifts: [], checks: {} };
+  return { settings: { periodDays: 14, anchor: todayStr() }, pools: [], shifts: [], checks: {}, last: {} };
 }
 function load() {
   try {
     const s = JSON.parse(localStorage.getItem(KEY));
-    if (s && s.settings && Array.isArray(s.shifts)) { s.checks = s.checks || {}; return s; }
+    if (s && s.settings && Array.isArray(s.shifts)) {
+      s.pools = s.pools || [];
+      s.checks = s.checks || {};
+      s.last = s.last || {};
+      return s;
+    }
   } catch (e) {}
   return defaults();
 }
@@ -199,18 +220,28 @@ function periodStartFor(dateStr) {
 }
 function periodEnd(start) { return fromDayNum(dayNum(start) + state.settings.periodDays - 1); }
 function shiftHours(s) {
+  if (typeof s.hours === 'number') return s.hours;
+  // shifts saved by the first version used start/end times
   const toMin = t => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
   let mins = toMin(s.end) - toMin(s.start);
-  if (mins <= 0) mins += 1440; // overnight shift
+  if (mins <= 0) mins += 1440;
   mins -= Number(s.breakMin) || 0;
   return Math.max(0, mins) / 60;
 }
-const shiftPay = s => shiftHours(s) * s.rate * s.mult;
+const shiftPay = s => shiftHours(s) * (s.rate || 0) * (s.mult || 1);
 function shiftsIn(start) {
   const a = dayNum(start), b = a + state.settings.periodDays - 1;
   return state.shifts
     .filter(s => { const n = dayNum(s.date); return n >= a && n <= b; })
-    .sort((x, y) => (x.date + x.start).localeCompare(y.date + y.start));
+    .sort((x, y) => x.date.localeCompare(y.date));
+}
+const findPool = id => state.pools.find(p => p.id === id);
+const findPos = (pool, id) => pool ? pool.positions.find(p => p.id === id) : null;
+function shiftLabel(s) {
+  const pool = findPool(s.poolId), pos = findPos(pool, s.posId);
+  const poolName = pool ? pool.name : (s.poolName || '');
+  const posName = pos ? pos.name : (s.posName || '');
+  return [poolName, posName].filter(Boolean).join(' · ');
 }
 
 // ---------- rendering ----------
@@ -223,7 +254,7 @@ function render() {
   const list = shiftsIn(viewStart);
   const hours = list.reduce((t, s) => t + shiftHours(s), 0);
   const pay = list.reduce((t, s) => t + shiftPay(s), 0);
-  $('totHours').textContent = hours.toFixed(2);
+  $('totHours').textContent = fmtHours(hours);
   $('totPay').textContent = money(pay);
 
   const box = $('shiftList');
@@ -234,20 +265,15 @@ function render() {
   for (const s of list) {
     const el = document.createElement('div');
     el.className = 'shift';
-    const multTxt = s.mult > 1 ? ' · ' + s.mult + '×' : '';
-    const breakTxt = s.breakMin > 0 ? ' · ' + s.breakMin + ' min break' : '';
-    el.innerHTML = `
-      <div>
-        <div class="main"></div>
-        <div class="sub"></div>
-      </div>
-      <div class="right">
-        <div class="main">${shiftHours(s).toFixed(2)} h</div>
-        <div class="sub">${money(shiftPay(s))}</div>
-        <div class="actions"><button class="link" data-edit>Edit</button><button class="link del" data-del>Delete</button></div>
-      </div>`;
+    el.innerHTML =
+      '<div><div class="main"></div><div class="sub"></div></div>' +
+      '<div class="right"><div class="main h"></div><div class="sub p"></div>' +
+      '<div class="actions"><button class="link" data-edit>Edit</button><button class="link del" data-del>Delete</button></div></div>';
     el.querySelector('.main').textContent = fmtDate(s.date);
-    el.querySelector('.sub').textContent = fmtTime(s.start) + ' – ' + fmtTime(s.end) + breakTxt + multTxt + (s.note ? ' · ' + s.note : '');
+    const label = shiftLabel(s);
+    el.querySelector('.sub').textContent = (label ? label + ' · ' : '') + money(s.rate || 0) + '/h' + (s.note ? ' · ' + s.note : '');
+    el.querySelector('.h').textContent = fmtHours(shiftHours(s)) + ' h';
+    el.querySelector('.p').textContent = money(shiftPay(s));
     el.querySelector('[data-edit]').onclick = () => startEdit(s.id);
     el.querySelector('[data-del]').onclick = () => {
       if (confirm('Delete the shift on ' + fmtDate(s.date) + '?')) {
@@ -259,39 +285,75 @@ function render() {
   }
 
   const c = state.checks[viewStart];
-  $('cHours').value = c ? c.hours : '';
   $('cGross').value = c ? c.gross : '';
   $('checkResult').innerHTML = '';
-  if (c) showCheck(c, hours, pay);
+  if (c) showCheck(c, pay);
 }
 
-function showCheck(c, hours, pay) {
-  const dh = c.hours - hours, dp = c.gross - pay;
-  const hoursOk = Math.abs(dh) < 0.01, payOk = Math.abs(dp) < 0.01;
-  const lines = [];
-  lines.push(hoursOk ? '✓ Hours match (' + hours.toFixed(2) + ').'
-    : (dh < 0 ? '✗ Paystub shows ' + Math.abs(dh).toFixed(2) + ' fewer hours than you logged.'
-              : '✗ Paystub shows ' + dh.toFixed(2) + ' more hours than you logged.'));
-  lines.push(payOk ? '✓ Gross pay matches (' + money(pay) + ').'
-    : (dp < 0 ? '✗ You may be underpaid by ' + money(Math.abs(dp)) + '. Expected ' + money(pay) + ', got ' + money(c.gross) + '.'
-              : '✗ Paystub is ' + money(dp) + ' more than expected. Expected ' + money(pay) + ', got ' + money(c.gross) + '.'));
+function showCheck(c, pay) {
+  const dp = c.gross - pay;
   const r = document.createElement('div');
-  r.className = 'result ' + (hoursOk && payOk ? 'ok' : 'off');
-  r.innerHTML = lines.join('<br>');
+  if (Math.abs(dp) < 0.01) {
+    r.className = 'result ok';
+    r.textContent = '✓ Your paycheck matches. Expected ' + money(pay) + ', got ' + money(c.gross) + '.';
+  } else if (dp < 0) {
+    r.className = 'result off';
+    r.textContent = '✗ You may be underpaid by ' + money(-dp) + '. Expected ' + money(pay) + ', got ' + money(c.gross) + '.';
+  } else {
+    r.className = 'result off';
+    r.textContent = '✗ Your paycheck is ' + money(dp) + ' more than expected. Expected ' + money(pay) + ', got ' + money(c.gross) + '.';
+  }
   $('checkResult').innerHTML = '';
   $('checkResult').appendChild(r);
 }
 
-// ---------- form ----------
+// ---------- shift form ----------
+function fillPoolSelect(selectedPoolId) {
+  const sel = $('fPool');
+  sel.innerHTML = '';
+  for (const p of state.pools) {
+    const o = document.createElement('option');
+    o.value = p.id; o.textContent = p.name || '(unnamed pool)';
+    sel.appendChild(o);
+  }
+  if (selectedPoolId && findPool(selectedPoolId)) sel.value = selectedPoolId;
+  $('noPools').hidden = state.pools.length > 0;
+}
+function fillPosSelect(selectedPosId) {
+  const sel = $('fPos');
+  const pool = findPool($('fPool').value);
+  sel.innerHTML = '';
+  if (!pool) return;
+  for (const p of pool.positions) {
+    const o = document.createElement('option');
+    o.value = p.id; o.textContent = (p.name || '(unnamed)') + ' – ' + money(Number(p.rate) || 0) + '/h';
+    sel.appendChild(o);
+  }
+  if (selectedPosId && findPos(pool, selectedPosId)) sel.value = selectedPosId;
+}
+function refreshFormSelects() {
+  const poolId = $('fPool').value || state.last.poolId;
+  const posId = $('fPos').value || state.last.posId;
+  fillPoolSelect(poolId);
+  fillPosSelect(posId);
+}
+$('fPool').onchange = () => fillPosSelect();
+
+function setHours(v) { $('fHours').value = Math.max(0, roundQ(v)).toFixed(2); }
+$('hMinus').onclick = () => setHours((parseFloat($('fHours').value) || 0) - 0.25);
+$('hPlus').onclick = () => setHours((parseFloat($('fHours').value) || 0) + 0.25);
+$('fHours').onblur = () => setHours(parseFloat($('fHours').value) || 0);
+
 function resetForm() {
   editingId = null;
   $('formTitle').textContent = 'Log a shift';
   $('saveShift').textContent = 'Add shift';
   $('cancelEdit').hidden = true;
   $('fDate').value = todayStr();
-  $('fBreak').value = 0;
-  $('fMult').value = '1';
   $('fNote').value = '';
+  setHours(state.last.hours || 4);
+  fillPoolSelect(state.last.poolId);
+  fillPosSelect(state.last.posId);
 }
 function startEdit(id) {
   const s = state.shifts.find(x => x.id === id);
@@ -300,28 +362,41 @@ function startEdit(id) {
   $('formTitle').textContent = 'Edit shift';
   $('saveShift').textContent = 'Save changes';
   $('cancelEdit').hidden = false;
-  $('fDate').value = s.date; $('fStart').value = s.start; $('fEnd').value = s.end;
-  $('fBreak').value = s.breakMin; $('fMult').value = String(s.mult); $('fNote').value = s.note || '';
+  $('fDate').value = s.date;
+  setHours(shiftHours(s));
+  $('fNote').value = s.note || '';
+  fillPoolSelect(s.poolId);
+  fillPosSelect(s.posId);
   window.scrollTo({ top: $('formTitle').offsetTop - 20, behavior: 'smooth' });
 }
 $('saveShift').onclick = () => {
-  const date = $('fDate').value, start = $('fStart').value, end = $('fEnd').value;
-  if (!date || !start || !end) return alert('Fill in the date, start and end.');
-  if (!state.settings.rate) {
-    if (!confirm('You haven\'t set your hourly rate yet (Settings at the bottom). Log the shift anyway at $0/h?')) return;
+  const date = $('fDate').value;
+  const hours = roundQ(parseFloat($('fHours').value) || 0);
+  const pool = findPool($('fPool').value);
+  const pos = findPos(pool, $('fPos').value);
+  if (!state.pools.length) {
+    $('settingsBox').open = true;
+    $('settingsBox').scrollIntoView({ behavior: 'smooth' });
+    return alert('Add a pool with at least one position first.');
   }
+  if (!date) return alert('Pick a date.');
+  if (!pool || !pos) return alert('Pick a pool and a position. Add positions to a pool in Pools & settings.');
+  if (hours <= 0) return alert('Enter the hours you worked.');
+
   const data = {
-    date, start, end,
-    breakMin: Math.max(0, Number($('fBreak').value) || 0),
-    mult: Number($('fMult').value) || 1,
-    note: $('fNote').value.trim()
+    date, hours, note: $('fNote').value.trim(),
+    poolId: pool.id, posId: pos.id, poolName: pool.name, posName: pos.name
   };
   if (editingId) {
     const s = state.shifts.find(x => x.id === editingId);
+    // keep the original rate unless the pool or position was changed
+    if (s.poolId !== pool.id || s.posId !== pos.id) data.rate = Number(pos.rate) || 0;
+    delete s.start; delete s.end; delete s.breakMin; delete s.mult;
     Object.assign(s, data);
   } else {
-    state.shifts.push({ id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), rate: state.settings.rate, ...data });
+    state.shifts.push(Object.assign({ id: uid(), rate: Number(pos.rate) || 0 }, data));
   }
+  state.last = { poolId: pool.id, posId: pos.id, hours };
   save();
   viewStart = periodStartFor(date);
   resetForm(); render();
@@ -330,9 +405,9 @@ $('cancelEdit').onclick = () => resetForm();
 
 // ---------- paycheck check ----------
 $('runCheck').onclick = () => {
-  const hours = parseFloat($('cHours').value), gross = parseFloat($('cGross').value);
-  if (isNaN(hours) || isNaN(gross)) return alert('Enter both the hours and the gross pay from your paystub.');
-  state.checks[viewStart] = { hours, gross };
+  const gross = parseFloat($('cGross').value);
+  if (isNaN(gross)) return alert('Enter the gross pay from your paystub.');
+  state.checks[viewStart] = { gross };
   save(); render();
 };
 
@@ -340,22 +415,87 @@ $('runCheck').onclick = () => {
 $('prev').onclick = () => { viewStart = fromDayNum(dayNum(viewStart) - state.settings.periodDays); render(); };
 $('next').onclick = () => { viewStart = fromDayNum(dayNum(viewStart) + state.settings.periodDays); render(); };
 
-// ---------- settings ----------
+// ---------- pools editor ----------
+function renderPools() {
+  const box = $('poolEditor');
+  box.innerHTML = '';
+  if (!state.pools.length) {
+    box.innerHTML = '<div class="empty" style="text-align:left;margin-bottom:10px">No pools yet.</div>';
+  }
+  for (const pool of state.pools) {
+    const wrap = document.createElement('div');
+    wrap.className = 'poolbox';
+
+    const head = document.createElement('div');
+    head.className = 'poolhead';
+    const name = document.createElement('input');
+    name.type = 'text'; name.placeholder = 'Pool name'; name.value = pool.name;
+    name.oninput = () => { pool.name = name.value; save(); refreshFormSelects(); render(); };
+    const del = document.createElement('button');
+    del.className = 'xbtn'; del.textContent = '🗑'; del.setAttribute('aria-label', 'Delete pool');
+    del.onclick = () => {
+      if (!confirm('Delete ' + (pool.name || 'this pool') + '? Shifts you already logged keep their pay.')) return;
+      state.pools = state.pools.filter(p => p.id !== pool.id);
+      save(); renderPools(); refreshFormSelects(); render();
+    };
+    head.append(name, del);
+    wrap.appendChild(head);
+
+    for (const pos of pool.positions) {
+      const row = document.createElement('div');
+      row.className = 'posrow';
+      const pn = document.createElement('input');
+      pn.type = 'text'; pn.className = 'pname'; pn.placeholder = 'Position (e.g. Instructing)'; pn.value = pos.name;
+      pn.oninput = () => { pos.name = pn.value; save(); refreshFormSelects(); render(); };
+      const pr = document.createElement('input');
+      pr.type = 'number'; pr.className = 'prate'; pr.step = '0.01'; pr.min = '0';
+      pr.setAttribute('inputmode', 'decimal'); pr.placeholder = '$/hour'; pr.value = pos.rate === '' ? '' : pos.rate;
+      pr.oninput = () => { pos.rate = pr.value === '' ? '' : Number(pr.value); save(); refreshFormSelects(); };
+      const x = document.createElement('button');
+      x.className = 'xbtn'; x.textContent = '×'; x.setAttribute('aria-label', 'Delete position');
+      x.onclick = () => {
+        if (!confirm('Delete the ' + (pos.name || 'unnamed') + ' position?')) return;
+        pool.positions = pool.positions.filter(p => p.id !== pos.id);
+        save(); renderPools(); refreshFormSelects();
+      };
+      row.append(pn, pr, x);
+      wrap.appendChild(row);
+    }
+
+    const add = document.createElement('button');
+    add.className = 'btn secondary small'; add.textContent = '+ Add position';
+    add.onclick = () => {
+      pool.positions.push({ id: uid(), name: '', rate: '' });
+      save(); renderPools(); refreshFormSelects();
+      const inputs = $('poolEditor').querySelectorAll('.poolbox')[state.pools.indexOf(pool)].querySelectorAll('.pname');
+      inputs[inputs.length - 1].focus();
+    };
+    wrap.appendChild(add);
+    box.appendChild(wrap);
+  }
+}
+$('addPool').onclick = () => {
+  state.pools.push({ id: uid(), name: '', positions: [{ id: uid(), name: '', rate: '' }] });
+  save(); renderPools(); refreshFormSelects();
+  const names = $('poolEditor').querySelectorAll('.poolhead input');
+  names[names.length - 1].focus();
+};
+
+// ---------- pay period settings ----------
 function fillSettings() {
-  $('sRate').value = state.settings.rate || '';
   $('sDays').value = String(state.settings.periodDays);
   $('sAnchor').value = state.settings.anchor;
 }
-$('saveSettings').onclick = () => {
-  const rate = parseFloat($('sRate').value);
-  if (isNaN(rate) || rate < 0) return alert('Enter a valid hourly rate.');
-  if (!$('sAnchor').value) return alert('Pick the first day of a pay period.');
-  state.settings = { rate, periodDays: Number($('sDays').value), anchor: $('sAnchor').value };
+function savePeriod() {
+  if (!$('sAnchor').value) return;
+  state.settings.periodDays = Number($('sDays').value);
+  state.settings.anchor = $('sAnchor').value;
   save();
   viewStart = periodStartFor(todayStr());
   render();
-  alert('Settings saved.');
-};
+}
+$('sDays').onchange = savePeriod;
+$('sAnchor').onchange = savePeriod;
 
 // ---------- backup ----------
 $('exportBtn').onclick = async () => {
@@ -380,16 +520,17 @@ $('importFile').onchange = async e => {
     const data = JSON.parse(await f.text());
     if (!data.settings || !Array.isArray(data.shifts)) throw new Error();
     if (!confirm('Replace everything in the app with this backup (' + data.shifts.length + ' shifts)?')) return;
-    data.checks = data.checks || {};
+    data.pools = data.pools || []; data.checks = data.checks || {}; data.last = data.last || {};
     state = data; save();
     viewStart = periodStartFor(todayStr());
-    fillSettings(); render();
-  } catch (err) { alert('That file doesn\'t look like a Shift Log backup.'); }
+    fillSettings(); renderPools(); resetForm(); render();
+  } catch (err) { alert("That file doesn't look like a Shift Log backup."); }
   e.target.value = '';
 };
 
 // ---------- start ----------
-resetForm(); fillSettings(); render();
+fillSettings(); renderPools(); resetForm(); render();
+if (!state.pools.length) $('settingsBox').open = true;
 </script>
 </body>
 </html>
