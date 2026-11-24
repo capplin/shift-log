@@ -131,6 +131,13 @@
   .status { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); margin: 0 0 12px; }
   .spin { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--tint); border-top-color: var(--accent); animation: spin .8s linear infinite; flex-shrink: 0; }
   @keyframes spin { to { transform: rotate(360deg); } }
+  .improw { display: flex; align-items: center; gap: 12px; padding: 10px 2px; border-top: 1px solid var(--line); cursor: pointer; margin: 0; color: var(--ink); font-size: 15px; font-weight: 400; }
+  .improw:first-child { border-top: 0; }
+  .improw input[type=checkbox] { -webkit-appearance: auto; appearance: auto; width: 20px; height: 20px; min-height: 0; padding: 0; margin: 0; flex: 0 0 20px; accent-color: var(--accent); }
+  .improw .d { font-weight: 700; }
+  .improw .n { font-size: 13px; color: var(--muted); }
+  .improw .h { margin-left: auto; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .badge { display: inline-block; font-size: 11px; font-weight: 700; color: var(--bad); background: var(--badbg); border-radius: 6px; padding: 1px 6px; margin-left: 6px; }
 
   /* calendar */
   .minical { cursor: pointer; }
@@ -208,6 +215,24 @@
       <button class="btn" id="saveShift">Add shift</button>
       <button class="btn secondary" id="cancelEdit" hidden>Cancel</button>
     </div>
+    <button class="btn secondary" id="impBtn" style="margin-top:10px">📝 Import shifts from a Notes screenshot</button>
+    <input type="file" id="impFile" accept="image/*" hidden>
+    <div id="impStatus" class="status" hidden style="margin-top:12px"><div class="spin" id="impSpin"></div><span id="impMsg"></span></div>
+    <div id="impReview" class="review" hidden style="margin-top:12px">
+      <div class="hint" id="impSummary"></div>
+      <div class="row">
+        <div><label for="iPool">Pool</label><select id="iPool"></select></div>
+      </div>
+      <div class="row">
+        <div><label for="iPos">Position</label><select id="iPos"></select></div>
+      </div>
+      <div id="impList"></div>
+      <div class="btns" style="margin-top:12px">
+        <button class="btn" id="impApply">Add shifts</button>
+        <button class="btn secondary" id="impCancel">Cancel</button>
+      </div>
+      <details class="rawtext"><summary>Show the text it read</summary><pre id="impRaw"></pre></details>
+    </div>
   </section>
 
   <section class="card minical" id="miniCard">
@@ -247,7 +272,6 @@
     </div>
     <button class="btn" id="runCheck">Compare</button>
     <div id="checkResult"></div>
-    <div class="hint">Compare gross pay (before taxes), not take-home. If your employer pays a period behind, use the arrows at the top to go to the period the paycheck actually covers.</div>
   </section>
 
   <section class="card">
@@ -257,7 +281,6 @@
       <div class="sectionlabel" style="margin-top:0">Pools and pay rates</div>
       <div id="poolEditor"></div>
       <button class="btn secondary" id="addPool">+ Add pool</button>
-      <div class="hint">Changing a rate applies to shifts you log from now on. Shifts already logged keep the rate they were logged at, so a raise won't change old pay periods.</div>
 
       <div class="sectionlabel">Pay period</div>
       <div class="row">
@@ -270,14 +293,6 @@
         </div>
         <div><label for="sAnchor">First day of a period</label><input type="date" id="sAnchor"></div>
       </div>
-
-      <div class="sectionlabel">Backup</div>
-      <div class="btns">
-        <button class="btn secondary" id="exportBtn">Export backup</button>
-        <button class="btn secondary" id="importBtn">Restore backup</button>
-      </div>
-      <input type="file" id="importFile" accept="application/json,.json" hidden>
-      <div class="hint">Your data lives only on this phone. Export a backup now and then and save it to Files or iCloud Drive.</div>
     </details>
   </section>
 </main>
@@ -843,6 +858,20 @@ function loadTesseract() {
   }
   return tesseractLoading;
 }
+async function ocrImage(file, onMsg) {
+  onMsg('Getting the text reader ready (only slow the first time)…');
+  await loadTesseract();
+  const img = await prepImage(file);
+  const worker = await Tesseract.createWorker('eng', 1, {
+    logger: m => { if (m.status === 'recognizing text') onMsg('Reading the screenshot… ' + Math.round(m.progress * 100) + '%'); }
+  });
+  try {
+    const { data } = await worker.recognize(img);
+    return data.text || '';
+  } finally {
+    await worker.terminate();
+  }
+}
 function scanStatus(msg, busy) {
   $('scanStatus').hidden = !msg;
   $('scanMsg').textContent = msg || '';
@@ -857,15 +886,7 @@ $('scanFile').onchange = async e => {
   $('scanReview').hidden = true;
   $('scanBtn').disabled = true;
   try {
-    scanStatus('Getting the text reader ready (only slow the first time)…', true);
-    await loadTesseract();
-    const img = await prepImage(file);
-    const worker = await Tesseract.createWorker('eng', 1, {
-      logger: m => { if (m.status === 'recognizing text') scanStatus('Reading your payslip… ' + Math.round(m.progress * 100) + '%', true); }
-    });
-    const { data } = await worker.recognize(img);
-    await worker.terminate();
-    const text = data.text || '';
+    const text = await ocrImage(file, msg => scanStatus(msg, true));
     const r = readPayslipText(text);
     $('rawText').textContent = text.trim() || '(no text found)';
     $('rStart').value = r.start || '';
@@ -900,6 +921,144 @@ $('rApply').onclick = () => {
   save(); fillSettings(); render();
   $('scanReview').hidden = true; scanStatus('');
   $('checkResult').scrollIntoView({ behavior: 'smooth', block: 'center' });
+};
+
+// ---------- import shifts from a Notes screenshot ----------
+// lines look like "July 4th 11:45-5:45 6 hours" or "June 29th orientation 1 hour"
+function parseNotesLine(line) {
+  const re = /([A-Za-z]{3,9})\.?\s*(\d{1,2})(?!\d)/g;
+  let m, mo = 0;
+  while ((m = re.exec(line))) { mo = monthNum(m[1]); if (mo) break; }
+  if (!mo) return null;
+  const day = +m[2];
+  const cy = new Date().getFullYear();
+  let date = isoOf(cy, mo, day);
+  if (!date) return null;
+  if (dayNum(date) > dayNum(todayStr()) + 45) date = isoOf(cy - 1, mo, day);
+  let rest = line.slice(m.index + m[0].length).replace(/^(st|nd|rd|th)/i, '');
+  let hours = null;
+  const hm = rest.match(/(\d+(?:[.,]\d+)?)\s*(?:hours?|hrs?)[a-z]*/i);
+  if (hm) {
+    hours = parseFloat(hm[1].replace(',', '.'));
+    rest = rest.replace(hm[0], ' ');
+  } else {
+    const tm = rest.match(/(\d{1,2})(?:[:.](\d{2}))?\s*[-–—]\s*(\d{1,2})(?:[:.](\d{2}))?/);
+    if (tm) {
+      let diff = (+tm[3] + (+tm[4] || 0) / 60) - (+tm[1] + (+tm[2] || 0) / 60);
+      if (diff <= 0) diff += 12;
+      hours = diff;
+    }
+  }
+  if (!hours || hours <= 0 || hours > 16) return null;
+  const note = rest.replace(/hours?\w*/gi, ' ').replace(/[^\w:.\-– ]+/g, ' ').replace(/\s+/g, ' ').trim();
+  return { date, hours: roundQ(hours), note };
+}
+function parseNotes(text) {
+  const byDate = {};
+  for (const line of text.split(/\r?\n/)) {
+    const r = parseNotesLine(line.trim());
+    if (r) byDate[r.date] = r;
+  }
+  return Object.values(byDate).sort((a, b) => a.date.localeCompare(b.date));
+}
+
+let impRows = [];
+function impStatus(msg, busy) {
+  $('impStatus').hidden = !msg;
+  $('impMsg').textContent = msg || '';
+  $('impSpin').hidden = !busy;
+}
+function fillImpSelects(poolId, posId) {
+  const ps = $('iPool');
+  ps.innerHTML = '';
+  for (const p of state.pools) { const o = document.createElement('option'); o.value = p.id; o.textContent = p.name || '(unnamed pool)'; ps.appendChild(o); }
+  if (poolId && findPool(poolId)) ps.value = poolId;
+  const pool = findPool(ps.value), qs = $('iPos');
+  qs.innerHTML = '';
+  if (pool) for (const p of pool.positions) { const o = document.createElement('option'); o.value = p.id; o.textContent = (p.name || '(unnamed)') + ' – ' + money(Number(p.rate) || 0) + '/h'; qs.appendChild(o); }
+  if (posId && findPos(pool, posId)) qs.value = posId;
+}
+$('iPool').onchange = () => fillImpSelects($('iPool').value);
+function renderImpList() {
+  const box = $('impList');
+  box.innerHTML = '';
+  const by = shiftsByDate();
+  for (const r of impRows) {
+    const row = document.createElement('label');
+    row.className = 'improw';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox'; cb.checked = r.on;
+    cb.onchange = () => { r.on = cb.checked; updateImpButton(); };
+    const txt = document.createElement('div');
+    const d = document.createElement('div'); d.className = 'd'; d.textContent = fmtDate(r.date);
+    if (by[r.date]) { const b = document.createElement('span'); b.className = 'badge'; b.textContent = 'replaces'; d.appendChild(b); }
+    const n = document.createElement('div'); n.className = 'n'; n.textContent = r.note;
+    txt.append(d, n);
+    const h = document.createElement('div'); h.className = 'h'; h.textContent = fmtHours(r.hours) + ' h';
+    row.append(cb, txt, h);
+    box.appendChild(row);
+  }
+  updateImpButton();
+}
+function updateImpButton() {
+  const on = impRows.filter(r => r.on);
+  $('impApply').textContent = 'Add ' + on.length + (on.length === 1 ? ' shift' : ' shifts');
+  $('impApply').disabled = !on.length;
+}
+
+$('impBtn').onclick = () => {
+  if (!state.pools.length) {
+    $('settingsBox').open = true;
+    $('settingsBox').scrollIntoView({ behavior: 'smooth' });
+    return alert('Add a pool with at least one position first.');
+  }
+  $('impFile').click();
+};
+$('impFile').onchange = async e => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  $('impReview').hidden = true;
+  $('impBtn').disabled = true;
+  try {
+    const text = await ocrImage(file, msg => impStatus(msg, true));
+    impRows = parseNotes(text).map(r => Object.assign(r, { on: true }));
+    $('impRaw').textContent = text.trim() || '(no text found)';
+    if (!impRows.length) {
+      impStatus("Couldn't find any shifts in that screenshot. Each line should start with a date, like “July 4th 11:45-5:45 6 hours”.", false);
+      return;
+    }
+    impStatus('', false);
+    const total = impRows.reduce((t, r) => t + r.hours, 0);
+    $('impSummary').textContent = 'Found ' + impRows.length + ' shifts (' + fmtHours(total) + ' h). Untick any you don’t want, pick where you worked them, then add.';
+    fillImpSelects($('fPool').value || state.last.poolId, $('fPos').value || state.last.posId);
+    renderImpList();
+    $('impReview').hidden = false;
+    $('impReview').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } catch (err) {
+    impStatus("Couldn't read that image. Check you're online the first time you use this, then try again.", false);
+  } finally {
+    $('impBtn').disabled = false;
+  }
+};
+$('impCancel').onclick = () => { $('impReview').hidden = true; impRows = []; };
+$('impApply').onclick = () => {
+  const pool = findPool($('iPool').value), pos = findPos(pool, $('iPos').value);
+  if (!pool || !pos) return alert('Pick a pool and a position.');
+  const rows = impRows.filter(r => r.on);
+  const dates = new Set(rows.map(r => r.date));
+  state.shifts = state.shifts.filter(s => !dates.has(s.date));
+  for (const r of rows) {
+    state.shifts.push({
+      id: uid(), date: r.date, hours: r.hours, note: r.note, rate: Number(pos.rate) || 0,
+      poolId: pool.id, posId: pos.id, poolName: pool.name, posName: pos.name
+    });
+  }
+  state.last = Object.assign({}, state.last, { poolId: pool.id, posId: pos.id });
+  save();
+  $('impReview').hidden = true; impRows = [];
+  render();
+  impStatus('Added ' + rows.length + (rows.length === 1 ? ' shift.' : ' shifts.') + ' Tap the calendar to see them.', false);
 };
 
 // ---------- navigation ----------
@@ -987,37 +1146,6 @@ function savePeriod() {
 }
 $('sDays').onchange = savePeriod;
 $('sAnchor').onchange = savePeriod;
-
-// ---------- backup ----------
-$('exportBtn').onclick = async () => {
-  const json = JSON.stringify(state, null, 2);
-  const name = 'shift-log-backup-' + todayStr() + '.json';
-  const file = new File([json], name, { type: 'application/json' });
-  try {
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      await navigator.share({ files: [file], title: 'Shift Log backup' });
-      return;
-    }
-  } catch (e) { if (e.name === 'AbortError') return; }
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(file); a.download = name; a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-};
-$('importBtn').onclick = () => $('importFile').click();
-$('importFile').onchange = async e => {
-  const f = e.target.files[0];
-  if (!f) return;
-  try {
-    const data = JSON.parse(await f.text());
-    if (!data.settings || !Array.isArray(data.shifts)) throw new Error();
-    if (!confirm('Replace everything in the app with this backup (' + data.shifts.length + ' shifts)?')) return;
-    data.pools = data.pools || []; data.checks = data.checks || {}; data.last = data.last || {};
-    state = data; save();
-    viewStart = periodStartFor(todayStr());
-    fillSettings(); renderPools(); resetForm(); render();
-  } catch (err) { alert("That file doesn't look like a Shift Log backup."); }
-  e.target.value = '';
-};
 
 // ---------- start ----------
 fillSettings(); renderPools(); resetForm(); render();
