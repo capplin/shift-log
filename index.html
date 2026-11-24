@@ -120,7 +120,14 @@
   .posrow { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
   .posrow .pname { flex: 1.6; min-width: 0; }
   .posrow .prate { flex: 1; min-width: 0; }
-  .xbtn { flex: 0 0 36px; height: 44px; border: 0; border-radius: 12px; background: transparent; color: var(--bad); font-size: 20px; }
+  .xbtn { flex: 0 0 40px; height: 44px; border: 0; border-radius: 12px; background: transparent; color: var(--bad); font-size: 22px; }
+  .poolrow { display: flex; align-items: center; gap: 12px; padding: 12px 14px; background: var(--field); border-radius: 16px; margin-bottom: 10px; }
+  .poolrow .pinfo { flex: 1; min-width: 0; }
+  .poolrow .pn { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .poolrow .pp { font-size: 13px; color: var(--muted); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sheet.auto { height: auto; max-height: 92vh; }
+  .sheettitle { font-size: 17px; font-weight: 800; }
+  .btn.danger { background: var(--badbg); color: var(--bad); box-shadow: none; margin-top: 18px; }
   .sectionlabel { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; margin: 20px 0 10px 2px; }
   .review { background: var(--field); border-radius: 16px; padding: 14px; margin-bottom: 4px; }
   .review input { background: var(--card); }
@@ -296,6 +303,20 @@
     </details>
   </section>
 </main>
+
+<div class="modal" id="poolModal" hidden>
+  <div class="sheet auto">
+    <div class="grabber"></div>
+    <div class="sheetbar"><button id="pmCancel">Cancel</button><div class="sheettitle" id="pmTitle">New pool</div><button id="pmSave">Save</button></div>
+    <div class="row" style="margin-top:8px">
+      <div><label for="pmName">Pool name</label><input type="text" id="pmName" placeholder="e.g. Sackville Sports Stadium"></div>
+    </div>
+    <label>Positions and hourly pay</label>
+    <div id="pmPositions"></div>
+    <button class="btn secondary small" id="pmAddPos">+ Add position</button>
+    <button class="btn danger" id="pmDelete">Delete pool</button>
+  </div>
+</div>
 
 <div class="modal" id="calModal" hidden>
   <div class="sheet" id="calSheet">
@@ -1065,7 +1086,7 @@ $('impApply').onclick = () => {
 $('prev').onclick = () => { viewStart = fromDayNum(dayNum(viewStart) - state.settings.periodDays); render(); };
 $('next').onclick = () => { viewStart = fromDayNum(dayNum(viewStart) + state.settings.periodDays); render(); };
 
-// ---------- pools editor ----------
+// ---------- pools ----------
 function renderPools() {
   const box = $('poolEditor');
   box.innerHTML = '';
@@ -1073,63 +1094,101 @@ function renderPools() {
     box.innerHTML = '<div class="empty" style="margin-bottom:10px">No pools yet.</div>';
   }
   for (const pool of state.pools) {
-    const wrap = document.createElement('div');
-    wrap.className = 'poolbox';
-
-    const head = document.createElement('div');
-    head.className = 'poolhead';
-    const name = document.createElement('input');
-    name.type = 'text'; name.placeholder = 'Pool name'; name.value = pool.name;
-    name.oninput = () => { pool.name = name.value; save(); refreshFormSelects(); render(); };
-    const del = document.createElement('button');
-    del.className = 'xbtn'; del.textContent = '🗑'; del.setAttribute('aria-label', 'Delete pool');
-    del.onclick = () => {
-      if (!confirm('Delete ' + (pool.name || 'this pool') + '? Shifts you already logged keep their pay.')) return;
-      state.pools = state.pools.filter(p => p.id !== pool.id);
-      save(); renderPools(); refreshFormSelects(); render();
-    };
-    head.append(name, del);
-    wrap.appendChild(head);
-
-    for (const pos of pool.positions) {
-      const row = document.createElement('div');
-      row.className = 'posrow';
-      const pn = document.createElement('input');
-      pn.type = 'text'; pn.className = 'pname'; pn.placeholder = 'Position (e.g. Instructing)'; pn.value = pos.name;
-      pn.oninput = () => { pos.name = pn.value; save(); refreshFormSelects(); render(); };
-      const pr = document.createElement('input');
-      pr.type = 'number'; pr.className = 'prate'; pr.step = '0.01'; pr.min = '0';
-      pr.setAttribute('inputmode', 'decimal'); pr.placeholder = '$/hour'; pr.value = pos.rate === '' ? '' : pos.rate;
-      pr.oninput = () => { pos.rate = pr.value === '' ? '' : Number(pr.value); save(); refreshFormSelects(); };
-      const x = document.createElement('button');
-      x.className = 'xbtn'; x.textContent = '×'; x.setAttribute('aria-label', 'Delete position');
-      x.onclick = () => {
-        if (!confirm('Delete the ' + (pos.name || 'unnamed') + ' position?')) return;
-        pool.positions = pool.positions.filter(p => p.id !== pos.id);
-        save(); renderPools(); refreshFormSelects();
-      };
-      row.append(pn, pr, x);
-      wrap.appendChild(row);
-    }
-
-    const add = document.createElement('button');
-    add.className = 'btn secondary small'; add.textContent = '+ Add position';
-    add.onclick = () => {
-      pool.positions.push({ id: uid(), name: '', rate: '' });
-      save(); renderPools(); refreshFormSelects();
-      const inputs = $('poolEditor').querySelectorAll('.poolbox')[state.pools.indexOf(pool)].querySelectorAll('.pname');
-      inputs[inputs.length - 1].focus();
-    };
-    wrap.appendChild(add);
-    box.appendChild(wrap);
+    const row = document.createElement('div');
+    row.className = 'poolrow';
+    const info = document.createElement('div'); info.className = 'pinfo';
+    const n = document.createElement('div'); n.className = 'pn'; n.textContent = pool.name || '(unnamed pool)';
+    const p = document.createElement('div'); p.className = 'pp';
+    p.textContent = pool.positions.map(x => (x.name || 'unnamed') + ' ' + money(Number(x.rate) || 0)).join(' · ') || 'No positions';
+    info.append(n, p);
+    const edit = document.createElement('button');
+    edit.className = 'btn secondary small'; edit.textContent = 'Edit';
+    edit.style.background = 'var(--card)';
+    edit.onclick = () => openPoolEditor(pool.id);
+    row.append(info, edit);
+    box.appendChild(row);
   }
 }
-$('addPool').onclick = () => {
-  state.pools.push({ id: uid(), name: '', positions: [{ id: uid(), name: '', rate: '' }] });
-  save(); renderPools(); refreshFormSelects();
-  const names = $('poolEditor').querySelectorAll('.poolhead input');
-  names[names.length - 1].focus();
+
+let poolDraft = null, poolDraftId = null;
+function openPoolEditor(id) {
+  const pool = id ? findPool(id) : null;
+  poolDraftId = pool ? pool.id : null;
+  poolDraft = pool
+    ? { name: pool.name, positions: pool.positions.map(p => ({ id: p.id, name: p.name, rate: p.rate })) }
+    : { name: '', positions: [{ id: uid(), name: '', rate: '' }] };
+  $('pmTitle').textContent = pool ? 'Edit pool' : 'New pool';
+  $('pmName').value = poolDraft.name;
+  $('pmDelete').hidden = !pool;
+  renderPoolDraft();
+  $('poolModal').hidden = false;
+  document.body.style.overflow = 'hidden';
+  if (!pool) setTimeout(() => $('pmName').focus(), 300);
+}
+function closePoolEditor() {
+  $('poolModal').hidden = true;
+  document.body.style.overflow = '';
+  poolDraft = null; poolDraftId = null;
+}
+function renderPoolDraft() {
+  const box = $('pmPositions');
+  box.innerHTML = '';
+  for (const pos of poolDraft.positions) {
+    const row = document.createElement('div');
+    row.className = 'posrow';
+    const pn = document.createElement('input');
+    pn.type = 'text'; pn.className = 'pname'; pn.placeholder = 'Position (e.g. Instructing)'; pn.value = pos.name;
+    pn.oninput = () => { pos.name = pn.value; };
+    const pr = document.createElement('input');
+    pr.type = 'number'; pr.className = 'prate'; pr.step = '0.01'; pr.min = '0';
+    pr.setAttribute('inputmode', 'decimal'); pr.placeholder = '$/hour'; pr.value = pos.rate === '' ? '' : pos.rate;
+    pr.oninput = () => { pos.rate = pr.value; };
+    const x = document.createElement('button');
+    x.className = 'xbtn'; x.type = 'button'; x.textContent = '×'; x.setAttribute('aria-label', 'Remove position');
+    x.onclick = () => { poolDraft.positions = poolDraft.positions.filter(p => p !== pos); renderPoolDraft(); };
+    row.append(pn, pr, x);
+    box.appendChild(row);
+  }
+}
+$('pmName').oninput = () => { poolDraft.name = $('pmName').value; };
+$('pmAddPos').onclick = () => {
+  poolDraft.positions.push({ id: uid(), name: '', rate: '' });
+  renderPoolDraft();
+  const inputs = $('pmPositions').querySelectorAll('.pname');
+  inputs[inputs.length - 1].focus();
 };
+$('pmCancel').onclick = closePoolEditor;
+$('poolModal').onclick = e => { if (e.target === $('poolModal')) closePoolEditor(); };
+$('pmSave').onclick = () => {
+  const name = poolDraft.name.trim();
+  if (!name) return alert('Give the pool a name.');
+  const positions = poolDraft.positions
+    .map(p => ({ id: p.id, name: String(p.name).trim(), rate: p.rate === '' ? '' : Number(p.rate) }))
+    .filter(p => p.name || p.rate !== '');
+  if (!positions.length) return alert('Add at least one position with its pay.');
+  if (positions.some(p => !p.name)) return alert('Every position needs a name.');
+  if (positions.some(p => p.rate === '' || isNaN(p.rate) || p.rate < 0)) return alert('Every position needs an hourly pay.');
+  if (poolDraftId) {
+    const pool = findPool(poolDraftId);
+    pool.name = name; pool.positions = positions;
+  } else {
+    state.pools.push({ id: uid(), name, positions });
+  }
+  save();
+  closePoolEditor();
+  renderPools(); refreshFormSelects(); render();
+};
+$('pmDelete').onclick = () => {
+  const pool = findPool(poolDraftId);
+  if (!pool) return closePoolEditor();
+  if (!confirm('Delete ' + (pool.name || 'this pool') + '? Shifts you already logged keep their pay.')) return;
+  state.pools = state.pools.filter(p => p.id !== pool.id);
+  if (state.last.poolId === pool.id) state.last = Object.assign({}, state.last, { poolId: null, posId: null });
+  save();
+  closePoolEditor();
+  renderPools(); refreshFormSelects(); render();
+};
+$('addPool').onclick = () => openPoolEditor(null);
 
 // ---------- pay period settings ----------
 function fillSettings() {
